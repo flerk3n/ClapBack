@@ -68,7 +68,7 @@ export default function UploadScreen() {
       return;
     }
     if (sizeBytes > MAX_SIZE_BYTES) {
-      setError('Choose a video smaller than 100 MB for this demo.');
+      setError('Choose a video smaller than 100 MB.');
       return;
     }
 
