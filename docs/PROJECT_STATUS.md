@@ -23,9 +23,9 @@ A finite local HTTP smoke passed the scoped workflow in `TRANSCRIPTION_MODE=mock
 
 ## Repository state
 
-- Working demo-loop baseline: `37ce7d3` — `feat(demo): connect upload review and scoreboard loop`.
-- Status metadata correction: `c9f8c55` — `docs(status): record committed demo loop`.
-- Folder-backed review baseline: `a591479` — `feat(demo): load extra review videos from folder`.
+- Working demo-loop baseline: `a6047bc` — `feat(demo): connect upload review and scoreboard loop`.
+- Status metadata correction: `e45a7c0` — `docs(status): record committed demo loop`.
+- Folder-backed review baseline: `e44feb0` — `feat(demo): load extra review videos from folder`.
 - The three pre-existing edits in `frontend/apps/mobile/eslint.config.js`, `frontend/apps/mobile/package.json`, and `frontend/apps/mobile/package-lock.json` remain unrelated and must stay outside focused demo commits.
 
 ## Active demo architecture
