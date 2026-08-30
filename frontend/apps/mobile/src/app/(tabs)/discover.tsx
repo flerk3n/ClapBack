@@ -20,7 +20,7 @@ export default function DiscoverScreen() {
   const [details, setDetails] = useState<Bounty | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const { height } = useWindowDimensions();
-  const cardHeight = Math.max(360, Math.min(500, height - 340));
+  const cardHeight = Math.max(420, Math.min(560, height - 315));
 
   const available = useMemo(
     () => bounties.filter((bounty) => !skippedIds.includes(bounty.id)),
@@ -262,12 +262,12 @@ const styles = StyleSheet.create({
   filterButton: { marginLeft: 'auto', width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   stackArea: { width: '100%', position: 'relative' },
   actions: {
-    flex: 1,
+    height: 72,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[5],
-    paddingBottom: spacing[2],
+    marginTop: spacing[2],
   },
   actionButton: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', ...shadows.floating },
   skipButton: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },

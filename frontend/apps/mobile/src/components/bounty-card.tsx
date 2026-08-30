@@ -53,7 +53,7 @@ export function BountyCard({
 }: BountyCardProps) {
   const [position] = useState(() => new Animated.ValueXY());
   const { height } = useWindowDimensions();
-  const cardHeight = customCardHeight ?? Math.max(380, Math.min(520, height - 300));
+  const cardHeight = customCardHeight ?? Math.max(420, Math.min(560, height - 315));
 
   const completeSwipe = useCallback(
     (direction: 'left' | 'right') => {
