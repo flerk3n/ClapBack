@@ -21,7 +21,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestIdMiddleware);
 
 const uploadsDir = path.resolve(process.cwd(), process.env.UPLOADS_DIR ?? 'uploads');
+const reviewerPage = path.resolve(process.cwd(), 'public/review.html');
 app.use('/uploads', express.static(uploadsDir));
+app.get('/review/:token', (_req, res) => res.sendFile(reviewerPage));
 
 app.get('/health/live', (req, res) => ok(res, req, { status: 'alive' }));
 app.get('/health/ready', (req, res) => ok(res, req, { status: 'ready', mode: 'in-memory' }));

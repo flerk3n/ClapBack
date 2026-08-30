@@ -25,7 +25,9 @@ npm run lint
 npm run android
 ```
 
-OAuth uses the native scheme `clapback://oauth/callback`, so the real Meta flow must be tested in an Android development build rather than Expo Go. The current Client slice uses contract-validated demo data until the required Trusted Platform endpoints pass their sequential gates.
+OAuth uses the native scheme `clapback://oauth/callback`, so the real Meta flow must eventually be tested in an Android development build rather than Expo Go. The active demo gate intentionally uses Backend demo sign-in and connects the current Expo screens directly to the local Express multipart/AI/review flow; Meta OAuth, signed TUS, and production infrastructure do not block that gate.
+
+For QR testing from another phone, configure the mobile API URL and Backend public base URL to the Mac's LAN address or an HTTPS tunnel rather than `localhost` or the Android emulator-only `10.0.2.2` address.
 
 ## Trust-boundary rule
 

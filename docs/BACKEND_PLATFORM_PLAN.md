@@ -15,6 +15,10 @@ The Trusted Platform layer contains the authoritative platform capabilities:
 
 The Trusted Platform layer follows [`INTEGRATION_CONTRACT.md`](./INTEGRATION_CONTRACT.md). It does **not** implement Expo screens, React pages, swipe behavior, video-player UI, local Client token storage, or visual loading/error states.
 
+### Active demo gate
+
+The immediate Trusted Platform target is the existing Express prototype, not the future Fastify/Supabase design: receive a real multipart MP4 on local disk, run direct ElevenLabs transcription and Gemini-backed Deliverable verification, open a Creator-owned in-memory Review Round after `AI_PASSED`, serve the QR-linked reviewer page and videos from the same process, accept anonymous 1–5 Ratings, then close the round and return the frozen Scoreboard. Supabase/Postgres, signed TUS, persistent jobs, asynchronous provider webhooks, Meta OAuth, a separate admin app, and production security hardening are explicitly deferred until this loop works.
+
 ## 2. File boundary
 
 Trusted Platform work may edit:

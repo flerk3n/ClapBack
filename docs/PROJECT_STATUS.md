@@ -6,35 +6,46 @@
 
 ## Executive summary
 
-The polished Expo Creator app and the local Express Backend coexist in this repository. The mocked Creator journey runs successfully on the `Pixel_9` Android emulator. A single implementation owner now executes the work sequentially through Client and Trusted Platform gates; the existing technical, integration, frontend, Backend, and frontend README plans were updated to that model rather than adding another structure plan.
+Clapback is now focused on one working demo loop rather than a production-ready marketplace. The implemented local path is: Backend demo Creator sign-in -> Niche selection -> Bounty swipe/Acceptance -> real mobile multipart MP4 upload -> visible processing stages -> direct ElevenLabs transcription mode -> Deliverable verification with Gemini/OpenAI/heuristic fallback -> QR-linked human review -> 1–5 Ratings -> Creator-controlled stop -> frozen video-wise Scoreboard.
 
-The local P0 contract and authorization gate is now substantially aligned after post-review fixes. Shared schemas, canonical Maya and Bounty fixtures, exact public mappers, role isolation, Acceptance routing, Submission ownership and idempotency, refresh-token separation, explicit credential configuration, and generic 500 responses all passed final schema-driven HTTP smoke validation. The active local multipart protocol is now explicitly documented separately from the unimplemented target signed-TUS profile. The Backend remains an in-memory local prototype, however, and real mobile integration is still blocked on private Supabase Storage, genuine signed TUS upload, durable jobs, and asynchronous ElevenLabs `source_url` webhook processing.
+The current demo intentionally runs as one Express process with local public media, in-memory workflow state, and a dependency-free reviewer page served by the Backend. Private Supabase Storage, signed TUS, persistent jobs, provider webhooks, Meta OAuth, durable sessions, a separate React admin app, and production security hardening are deferred and do not block the demo.
 
-Local transcription now sends the original uploaded MP4 directly to ElevenLabs as multipart `file`; the FFmpeg/MP3 path is removed. This is an interim synchronous local path, not the durable architecture. The binding production design remains private original-video Storage, a short-lived signed `source_url`, and a verified idempotent asynchronous webhook.
+A finite local HTTP smoke passed the complete two-video flow using `TRANSCRIPTION_MODE=mock`: a Creator MP4 reached `AI_PASSED`, an additional real MP4 was staged through the Backend admin endpoint, both appeared on the reviewer page/feed, separate Ratings were saved, and closing review returned a ranked two-row Scoreboard. Backend/mobile builds and mobile lint pass. A real ElevenLabs request, representative Android MP4, Expo UI run after this integration, and cross-device QR access still require live environment validation before presentation.
 
 | Area | Status | Summary |
 | --- | --- | --- |
-| Creator mobile UI | Mock demo working | Creator journey runs in Expo Go on the Pixel 9 emulator; current typecheck, lint, dependency, and Expo config checks pass |
-| Shared frontend contracts | Local integration baseline implemented | Universal success envelopes, canonical demo auth/refresh schemas, the explicit local multipart Submission profile, core entities, and stable demo IDs parse the final local smoke flow |
-| Backend runtime | Local contract prototype working | Express API builds and passes schema-driven auth, Bounty, Acceptance, idempotent Submission, role, ownership, privacy, refresh, media, credential-startup, and mock-processing checks |
-| Frontend–Backend integration | Blocked on durable media path | Local wire shapes, multipart behavior, and security gates are aligned, but real mobile upload cannot proceed without private Storage and actual signed TUS |
-| Durable infrastructure | Not implemented | State and uploads remain in-memory/local/public; Supabase, persistent jobs, TUS, and transcription webhooks are absent |
-| Reviewer/admin web | Not implemented | `frontend/apps/web` remains reserved |
+| Creator mobile | Demo path implemented; runtime check pending | Existing polished screens now call real local auth, Niche, Bounty, Acceptance, multipart upload, Submission polling, review, and Scoreboard APIs |
+| Upload and AI | Local path implemented | MP4 uploads to local disk; Backend runs direct-video transcription then Deliverable verification and exposes real processing states |
+| Human review | Implemented and locally smoke-tested | Express serves `/review/:token` with vertical videos, brand asks, anonymous Ratings, and closed-round results |
+| QR and Scoreboard | Implemented and locally smoke-tested | Backend generates QR data locally; mobile renders it, stops review, and displays Backend-ranked video rows |
+| Additional demo videos | Implemented and locally smoke-tested | Admin can stage real playable MP4s that join the same-Bounty Review Round; staged videos are explicitly pre-approved fixtures |
+| Durable/production infrastructure | Deferred | Supabase, TUS, persistence, webhooks, real OAuth, deployment hardening, and payouts are outside the current demo gate |
 
 ## Repository state
 
-- Frontend implementation commit: `bbf62b1` — `feat(mobile): build polished creator bounty flow`.
-- Pulled Backend commit: `2217107` — `feat(backend): implement platform plan, contract API, review rounds, and scoring`.
-- Frontend/Backend merge commit: `858f141`.
-- Project-status tracking commit: `0715509`.
-- The three unrelated mobile edits in `frontend/apps/mobile/eslint.config.js`, `frontend/apps/mobile/package.json`, and `frontend/apps/mobile/package-lock.json` remain intentionally uncommitted and excluded from the intended focused P0 commit. Current mobile validation passes with all three present.
+- Latest committed integration gate: `c5a404a` — `feat(backend): complete local P0 integration gate`.
+- Current demo-loop implementation is present in the worktree and is not yet committed.
+- Branch is currently two commits ahead of `origin/main` before any commit for this demo-loop work.
+- The pre-existing edits in `frontend/apps/mobile/eslint.config.js`, `frontend/apps/mobile/package.json`, and `frontend/apps/mobile/package-lock.json` remain unrelated to this demo-loop implementation. They were not modified as part of the API/mobile/reviewer work and must remain separately reviewed.
 
-## Delivery ownership and sequencing
+## Active demo architecture
 
-- One implementation owner now executes sequential Client and Trusted Platform gates instead of parallel Developer A/B tracks.
-- `TECHNICAL_PLAN.md`, `docs/INTEGRATION_CONTRACT.md`, `docs/FRONTEND_APP_PLAN.md`, `docs/BACKEND_PLATFORM_PLAN.md`, and `frontend/README.md` now use that ownership model.
-- The active local multipart protocol and target signed-TUS profile are now described separately, and stale current-FFmpeg/removal wording was corrected in `TECHNICAL_PLAN.md` and `docs/BACKEND_PLATFORM_PLAN.md`.
-- No additional structure plan was created; those existing documents remain the planning sources.
+```text
+Expo Creator app
+  -> Express demo auth, Niches, Bounties, Acceptances
+  -> multipart MP4 POST /v1/submissions
+  -> local uploads/ + in-process processing
+  -> ElevenLabs direct MP4 transcription (or explicit mock mode)
+  -> Gemini/OpenAI/heuristic Deliverable verification
+  -> AI_PASSED
+  -> Creator starts Review Round
+  -> Backend-generated QR for /review/:token
+  -> anonymous browser Ratings on vertical same-Bounty videos
+  -> Creator stops review
+  -> frozen Backend Scoreboard in mobile
+```
+
+One process and local/in-memory state are deliberate demo choices. Client code does not calculate AI pass/fail or rankings.
 
 ## Implemented capabilities
 
@@ -42,270 +53,161 @@ Local transcription now sends the original uploaded MP4 directly to ElevenLabs a
 
 Location: `frontend/apps/mobile`
 
-- Expo SDK 57 app with Android-first configuration and Expo Router.
-- Restrained premium design language documented in `frontend/DESIGN_SYSTEM.md`.
-- Demo Instagram sign-in and SecureStore-backed demo session token.
-- Creator Profile confirmation and Niche selection.
-- Swipeable Discover Bounty stack with Accept and Skip actions.
-- Acceptance details, Payout display, and Active tasks.
-- Real device/emulator video selection and preview.
-- Simulated upload progress and Submission state progression.
-- AI-passed result with per-Deliverable evidence and confidence.
-- Shared terminology and core schemas from `frontend/packages/contracts`.
-- Deterministic mobile fixtures from `frontend/packages/demo-data`.
+- Backend demo login with SecureStore access/refresh token persistence and one refresh retry.
+- Backend-backed Niche selection, Bounty retrieval, Bounty Acceptance, and Acceptance restoration.
+- Existing swipe UI and stable Bounty visuals retained.
+- Real device/emulator MP4 selection and preview.
+- XHR multipart upload with real byte progress and Backend-aligned MP4/100 MB validation.
+- Polling of `QUEUED`, `TRANSCRIBING`, and `EVALUATING` until a terminal AI result.
+- Pipeline completion checks for upload received, transcription, AI testing, and human-review readiness.
+- Per-Deliverable evidence/confidence from the Backend.
+- Human-review start only after `AI_PASSED`.
+- Backend-generated QR image, selectable/openable review URL, and **Stop reviewing** control.
+- Frozen video-wise Scoreboard with rank, filename, Creator, average Rating, and Rating count.
+- Environment example for emulator API access and the demo Creator PIN.
 
-Current mobile boundaries:
-
-- Authentication, API calls, Acceptance creation, upload transport, and AI processing are mocked.
-- Only the demo access token persists; workflow state resets with the app process.
-- AI failure and processing-error states exist in UI logic but are not reachable through the normal mock journey.
-- The upload screen does not yet perform a real Backend/TUS upload.
-- Reviewer, admin, Scoreboard, and Payout interfaces are not implemented.
-
-### Shared contracts and demo data
-
-Locations: `frontend/packages/contracts`, `frontend/packages/demo-data`
-
-- Universal success envelopes use `{ data, meta: { requestId } }`.
-- Canonical demo Creator login, demo admin login, and refresh request/response schemas are defined.
-- The active local multipart Submission-create protocol and response schema are explicitly defined separately from the target signed-TUS profile.
-- Core public Creator, Bounty, Acceptance, and Submission schemas are aligned with the Backend's exact public mappers.
-- Demo data exports Maya's stable UUID: `ebf4b0b2-d96f-47d2-8f27-60139947f6b8`.
-- The five canonical Bounties use stable UUID fixtures shared with the Backend.
-
-Current shared-contract boundaries:
-
-- The local multipart Submission profile describes the interim prototype; the separately documented signed-TUS profile remains unimplemented.
-- Contract and fixture definitions remain duplicated across frontend and Backend source trees; consolidation or committed automated drift checks remain follow-up work.
-- Durable upload, asynchronous webhook, real OAuth, and persistent refresh behavior still require their final schemas and integration tests as those platform capabilities are implemented.
-
-### Backend API
+### Backend upload and AI path
 
 Location: `backend`
 
-- Express 5 API with request IDs, universal success envelopes, and generic global 500 responses.
-- Canonical demo Creator/admin JWT issuance plus a minimal refresh JWT flow.
-- Startup fails unless `JWT_SECRET`, `DEMO_CREATOR_PIN`, and `DEMO_ADMIN_PIN` are explicitly configured; `.env.example` contains non-working placeholders.
-- Exact Maya fixture with UUID `ebf4b0b2-d96f-47d2-8f27-60139947f6b8` and five canonical Bounty UUID fixtures.
-- Exact public Creator/Bounty/Acceptance/Submission mappers that omit transcript, storage, provider, reviewer, and `updatedAt` fields.
-- Creator middleware enforces `CREATOR`; every admin operation after `/v1/admin/auth/login` enforces `DEMO_ADMIN`.
-- Canonical `GET /v1/acceptances` returns owned Acceptances.
-- Submission creation requires an owned authoritative Acceptance, derives Creator/Bounty from it, and never auto-accepts a Bounty.
-- Local `POST /v1/submissions` requires `Idempotency-Key`: the same Creator/key replays the original Submission and deletes the duplicate uploaded file; a different key is rejected while that Acceptance has a non-failed Submission, while replacement remains available after `AI_FAILED` or `PROCESSING_ERROR`.
-- Demo reset clears the in-memory Submission idempotency state along with other transactional state.
-- Submission create, retrieval, and status routes enforce Creator ownership.
-- Local multipart MP4 upload with a 100 MB limit and honest local response semantics; no fake TUS descriptor is returned.
-- The local ElevenLabs path sends the original MP4 directly as multipart `file` with its real filename and MIME type.
-- `TRANSCRIPTION_MODE` must explicitly be `mock` or `elevenlabs`; mock mode requires explicit `MOCK_TRANSCRIPT` content and has no hidden NovaSkin fallback.
-- Bounty, Acceptance, Submission, review, Scoreboard, Payout, and ledger logic.
-- Simulated reviewer scoring and ClapCoin ledger behavior.
+- Creator-owned local multipart MP4 upload with a 100 MB cap and Submission idempotency.
+- In-process progression through `QUEUED -> TRANSCRIBING -> EVALUATING -> AI_PASSED|AI_FAILED|PROCESSING_ERROR`.
+- Original MP4 sent directly to ElevenLabs when `TRANSCRIPTION_MODE=elevenlabs`; no FFmpeg or MP3 derivative.
+- Structured Deliverable checks use deterministic spoken-phrase matching and Gemini/OpenAI/heuristic relevance evaluation.
+- Creator-owned Review Round start/restore/close endpoints.
+- Same-Bounty Review Rounds include the current video plus up to four additional `AI_PASSED` videos.
+- Local QR generation through pinned `qrcode` dependencies; no external QR service.
+- Closing a round is idempotent, freezes ranking, and marks member Submissions `SCORED`.
+- Admin multipart staging endpoint stores a real playable MP4 as an explicitly pre-approved additional demo video.
 
-Current Backend boundaries:
+### Human reviewer page
 
-- Restarting the API clears all transactional and idempotency state.
-- Uploaded files are local and publicly served from `/uploads`.
-- The local multipart processing path is synchronous and is not suitable as the durable mobile integration architecture.
-- Submission idempotency is local and in-memory; durable cross-restart replay protection is not implemented.
-- The minimal refresh JWT is stateless and non-revocable; rotating persistent refresh sessions are not implemented.
-- Demo PIN rate limiting is not implemented.
-- Supabase/Postgres, private Storage, persistent jobs, actual TUS, Meta OAuth, and verified transcription webhooks are not implemented.
-- No real ElevenLabs request or representative Android MP4 codec/container was validated.
+Location: `backend/public/review.html`
 
-## Direct-video transcription decision
+- Served by Express at `/review/:token` on the same origin as APIs and local video playback.
+- Creates/restores an anonymous browser session without reviewer accounts.
+- Full-height vertical scroll-snap feed for up to five same-Bounty videos.
+- Shows brand, product, brief, and Deliverables before playback.
+- Supports 1–5 Rating upsert per browser/video while the round is open.
+- Pauses off-screen videos and provides explicit watch controls.
+- Polls for round closure and renders the frozen Scoreboard.
+- Reviewer APIs reject missing or cross-round Reviewer Session IDs.
 
-The binding durable flow remains:
+### Shared contracts and configuration
 
-1. Mobile or admin web uploads the original accepted MP4 unchanged to private Storage through a genuine signed TUS flow.
-2. Backend verifies the object and creates a short-lived signed read URL.
-3. Backend sends that URL to ElevenLabs as `source_url`, enables asynchronous webhook delivery, and includes the Submission/correlation ID in `webhook_metadata`.
-4. A verified, idempotent webhook stores the normalized transcript and queues Deliverable evaluation.
-5. No client or server extracts audio, transcodes video, or creates a temporary MP3 in the normal path.
-
-ElevenLabs documents direct audio/video file input, `source_url`, asynchronous webhooks, and webhook metadata in the [Speech-to-Text convert API](https://elevenlabs.io/docs/api-reference/speech-to-text/convert). Content from the linked documentation has been rephrased for compliance with licensing restrictions.
-
-Completed local cleanup:
-
-- Removed the FFmpeg/audio-extraction service and temporary MP3 lifecycle.
-- Removed `fluent-ffmpeg` and `@types/fluent-ffmpeg` from Backend manifests and lockfile.
-- Replaced audio-path transcription with direct original-MP4 multipart `file` upload using the real filename and MIME type.
-- Made mock versus ElevenLabs processing explicit through `TRANSCRIPTION_MODE` and removed the hidden fixed NovaSkin fallback.
-- Corrected stale current-FFmpeg and pending-removal wording in the technical and Backend platform plans.
-
-Still required for the binding durable architecture:
-
-- Implement private Supabase Storage and genuine signed TUS upload.
-- Verify uploaded objects before transcription and issue short-lived signed read URLs.
-- Implement asynchronous ElevenLabs `source_url` requests with Submission correlation metadata.
-- Add a verified, replay-safe, idempotent webhook and persistent processing jobs.
-- Add redacted structured provider logging, timeouts/retries, and representative Android MP4 validation.
+- Shared Review Round, QR result, and Scoreboard Zod schemas/types were added.
+- `PUBLIC_BASE_URL` controls the URL encoded into QR codes.
+- `EXPO_PUBLIC_API_URL` controls mobile API access.
+- `EXPO_PUBLIC_DEMO_CREATOR_PIN` must match the Backend demo Creator PIN.
+- For a QR scanned by a physical phone, both public URLs must use the Mac's reachable LAN address or an HTTPS tunnel; `localhost` and Android-only `10.0.2.2` are not phone-reachable.
 
 ## Validation record
 
-### Mobile
+Validated on 2026-08-30:
 
-Validated on 2026-08-30 after the final post-review gate fixes, with the three unrelated mobile package/ESLint edits still present:
+### Static validation
 
-- `npm run typecheck` — passed.
-- `npm run lint` — passed.
-- `npx expo install --check` — passed; dependencies are up to date.
-- `CI=1 npx expo config --type public` — passed; valid SDK 57 public configuration.
-- Pixel 9 AVD boot, Expo Go installation, development bundle, and mocked journey — previously passed; the user reported the journey working in the emulator.
+- `cd backend && npm run build -- --noEmit` — passed after all Backend/reviewer/admin-staging changes.
+- Backend dependency install for exact `qrcode@1.5.4` and `@types/qrcode@1.5.5` — passed; npm reported zero vulnerabilities.
+- `cd frontend/apps/mobile && npm run typecheck` — passed.
+- `cd frontend/apps/mobile && npm run lint` — passed after removing the effect-triggered immediate state update.
+- `cd frontend/apps/mobile && CI=1 npx expo config --type public` — passed with SDK 57 configuration.
+- `git diff --check` — passed.
 
-Still required:
+### Finite end-to-end HTTP smoke
 
-- Decide whether to retain or revert the unrelated `eslint.config.js`, `package.json`, and `package-lock.json` edits before committing them.
-- Complete a physical Android device review for permissions, video playback, haptics, deep links, offline/error recovery, accessibility, and visual polish.
-- Use an Android development build rather than Expo Go for real Meta OAuth/deep-link validation.
+The final smoke used explicit local-only JWT/PIN values, `TRANSCRIPTION_MODE=mock`, and `MOCK_TRANSCRIPT='GlowPop 20% off CLAP20'`. It verified:
 
-### Backend and repository
+1. Creator login, Bounty retrieval, and Acceptance.
+2. Multipart `creator.mp4` upload and polling to `AI_PASSED`.
+3. Admin authentication and multipart staging of playable `competitor.mp4`.
+4. An OPEN Review Round containing both same-Bounty videos.
+5. A PNG QR data URL and HTTP 200 reviewer HTML page.
+6. A reviewer session and two feed items with playback URLs and three brand Deliverables.
+7. Separate Ratings of 5 and 3.
+8. Creator-owned close operation.
+9. Frozen Scoreboard rows ranked `creator.mp4` first at 5.0 and `competitor.mp4` second at 3.0, each with one Rating.
+10. Cleanup of the temporary runner and both uploaded smoke files.
 
-Validated on 2026-08-30 after the final post-review gate fixes:
+Not yet validated:
 
-- A semantic review initially returned `NEEDS_CHANGES` for a contract/runtime mismatch and duplicate Submission creation. Both High findings and predictable default credentials were fixed; shared-source duplication and the lack of committed automated tests remain follow-up constraints.
-- `npm ci` — passed; 225 packages audited and zero vulnerabilities. Deprecation warnings remain for some transitive packages, and npm reported the `elevenlabs@1.59.0` package-move notice.
-- `npm run build -- --noEmit` — passed after the post-review fixes.
-- Mobile `npm run typecheck` — passed after the post-review fixes.
-- `git diff --check` — passed after the post-review fixes.
-- The final local schema-driven HTTP smoke run passed.
-- The final smoke run parsed Creator login, five Bounties, Acceptance create/list, Submission create/status, admin login, and refresh responses through shared Zod schemas.
-- The final smoke run verified the exact five Bounty IDs, idempotent Acceptance behavior, same-key Submission replay, the different-key active-Submission guard with an HTTP 409 assertion, exact UUID/idempotency-key constraints, duplicate/rejected-file cleanup with only one accepted file remaining, invalid-media handling, public-field privacy, Submission ownership denial, Creator/admin role isolation, refresh-token rejection on Creator endpoints, and explicit mock direct-media processing through `AI_PASSED`.
-- Starting with the JWT/PIN environment variables unset failed immediately with `JWT_SECRET must be explicitly configured`, as intended.
+- Real ElevenLabs transcription with a representative Android-recorded/selected MP4.
+- Real Gemini response in the integrated flow; the final smoke used deterministic phrases plus heuristic fallback.
+- The updated integrated journey running in Expo on the Android emulator/device.
+- QR scan and video playback from an independent physical reviewer phone over LAN/tunnel.
+- Browser-specific autoplay/audio behavior on the presentation phones.
 
-Not validated:
+## Remaining demo blockers
 
-- No real ElevenLabs call or representative MP4 codec/container validation.
-- No actual TUS upload or Supabase Storage integration.
-- No asynchronous transcription webhook.
-- No committed automated Backend test suite or Backend lint configuration/script.
+### P0 — complete before presentation
 
-## Integration blockers
-
-The prior local P0 issues for UUID fixtures, public shapes, Creator/admin role guards, canonical `/v1/acceptances`, Submission authority/ownership/idempotency, contract/runtime multipart alignment, predictable default credentials, fake TUS advertising, and FFmpeg processing are resolved and covered by the final smoke run. The remaining priorities are:
-
-### P0 — must resolve before real mobile upload integration
-
-| Blocker | Impact | Relevant areas |
+| Blocker | Concrete impact | Next check |
 | --- | --- | --- |
-| Private Supabase Storage and a genuine signed TUS upload flow are not implemented | Mobile cannot perform resumable private video upload or receive a truthful durable upload descriptor | Backend storage/upload routes, mobile upload client, shared upload contracts |
-| Durable transcription still lacks signed `source_url`, persistent jobs, and a verified idempotent webhook | The local synchronous multipart path cannot safely or reliably process real production Submissions | Backend transcription adapter, webhook route, job persistence |
+| Real provider path is not exercised | Mock transcription proves orchestration but not ElevenLabs credentials, MP4 compatibility, latency, transcript wording, or Gemini output | Run one prepared Android MP4 with `TRANSCRIPTION_MODE=elevenlabs`, `ELEVENLABS_API_KEY`, and `GEMINI_API_KEY` |
+| Integrated Expo journey has not been rerun after replacing mocks | Typecheck/lint cannot prove picker permissions, XHR progress, navigation, polling, QR image rendering, or Scoreboard layout at runtime | Run the full Creator flow in the current emulator, then on the demo device |
+| Cross-device QR reachability is unproven | A QR containing `localhost` or `10.0.2.2` will not open on audience phones | Set both public URLs to a LAN IP or HTTPS tunnel and scan from an independent phone |
+| Presentation videos and exact spoken phrases are not finalized | Literal phrase checks can reject semantically correct transcription variants such as “twenty percent” versus `20%` | Record/choose prepared MP4s using the exact selected Bounty wording and verify their transcript once |
 
-### P1 — required for a safe end-to-end Creator flow
+### P1 — useful demo follow-ups, not blockers for the first loop
 
-| Blocker | Impact | Relevant areas |
-| --- | --- | --- |
-| Refresh JWTs are stateless/non-revocable and Meta OAuth is absent | Real login, rotation, revocation, and safe session restoration are unavailable | Backend auth, persistent session store, mobile auth client |
-| Demo PIN endpoints have no rate limiting | Explicit secrets remove predictable defaults, but repeated credential guessing is not throttled | Backend Creator/admin auth routes |
-| Workflow state, Submission idempotency, and uploads are in-memory/local/public | Restarts lose state and replay protection, and uploaded Creator media lacks durable private access control | Backend database/storage/idempotency layers |
-| Contract behavior is covered only by manual local smoke scripts | Regressions in envelopes, roles, ownership, privacy, fixtures, idempotency, cleanup, and state transitions are not automatically prevented | Backend/shared-contract test suites |
-| Contract and fixture sources remain duplicated | Frontend and Backend definitions can drift until they share one source or committed drift tests | Backend contracts/fixtures, frontend contracts/demo data |
-| Contracted mutation-wide `Idempotency-Key` handling is incomplete beyond local Acceptance/Submission behavior | Other mutation retries can duplicate effects, and current Submission replay protection does not survive restart | Review, Payout, reset, and durable Submission mutations |
-| Provider hardening and real-media validation are incomplete | Timeouts, retries, redaction, codec incompatibility, and provider failures remain unproven | ElevenLabs adapter, processing jobs, logging |
+- Add visible login/Niche/Acceptance request errors and disable repeat taps during slow requests.
+- Add a tiny operator runbook or script for admin login and staging two to four additional real MP4s before opening review.
+- Add alternate display names for staged videos if the presentation needs visually distinct Creators; current staging may reuse Maya while ranking remains video-wise.
+- Decide whether to retain or revert the unrelated mobile package/ESLint edits before any commit that includes them.
+- Add a simple reset control if repeated demos in one Backend process become cumbersome.
 
-### P2 — required beyond the local Creator demo
+### Deferred production work
 
-- Replace automatic reviewer simulation with canonical `AI_PASSED -> IN_REVIEW -> SCORED` transitions.
-- Define consistent units and balance updates for Payout/ledger entries.
-- Add strict CORS/callback allowlists and deployment health checks.
-- Build Reviewer/admin web experiences and persistent review/Payout workflows.
-- Implement guarded reset, Meta metrics ingestion, Review Round transactions, and Scoreboard freezing.
+- Supabase Postgres/private Storage, signed TUS, object verification, durable idempotency, and persistent jobs.
+- Asynchronous signed ElevenLabs `source_url` requests and verified webhooks.
+- Meta OAuth, rotating/revocable sessions, rate limiting, strict CORS, and private playback URLs.
+- Separate React reviewer/admin deployments, real payouts, moderation, and production observability.
 
-## Remaining delivery roadmap
-
-Work proceeds under one implementation owner through sequential gates.
-
-### Gate 1 — Client contract baseline
-
-Completed local baseline:
-
-1. Added universal envelopes and canonical demo auth/refresh/local Submission schemas.
-2. Stabilized Maya and the five Bounty UUID fixtures across demo data and Backend.
-3. Aligned exact public mappers, canonical Acceptance routing, role guards, Submission authority/ownership/idempotency, explicit credentials, and generic internal errors.
-4. Defined the active local multipart protocol separately from the target signed-TUS profile.
-5. Proved the local flow, including Submission replay/guard/file cleanup and credential-startup behavior, with shared-schema HTTP smoke validation.
-
-Remaining before the real Client connection:
-
-1. Finalize durable upload/transcription schemas as the Trusted Platform capabilities are built.
-2. Add committed automated shared-contract tests so the validated local baseline cannot regress.
-3. Consolidate duplicated frontend/Backend contract and fixture sources or add committed drift checks.
-
-### Gate 2 — Trusted Platform durability
-
-1. Add Supabase migrations, canonical seed data, private bucket/policies, and persistent workflow state.
-2. Implement genuine signed TUS upload, completion/object verification, and private playback access.
-3. Implement persistent processing jobs and direct-video ElevenLabs signed `source_url` requests.
-4. Implement verified idempotent transcription webhooks and safe normalized transcript storage.
-5. Add rotating revocable refresh sessions, then Meta OAuth exchange/refresh.
-6. Add durable mutation idempotency, PIN rate limiting, provider retries/timeouts, redacted logs, and automated integration tests.
-
-### Gate 3 — Real Creator mobile integration
-
-1. Add runtime API URL configuration and the shared API/envelope/error client.
-2. Add SecureStore access/refresh tokens, one refresh promise, and route guards.
-3. Replace local Profile/Niche/Bounty/Acceptance state with Backend queries/mutations.
-4. Implement real TUS progress, completion, polling, retry, and restored Active state.
-5. Make Backend AI failure and processing-error states reachable in the UI.
-6. Validate real Meta OAuth/deep links and representative video processing in an Android development build and on a physical device.
-7. Retain mocks only behind an explicit demo/local mode.
-
-### Gate 4 — Reviewer, demo-admin, deployment, and acceptance
-
-1. Scaffold `frontend/apps/web` with reviewer/admin API clients and routes.
-2. Build tokenized Reviewer playback/rating/progress and Demo Admin upload/candidate/QR/round/reset controls.
-3. Render frozen Scoreboard, UGC buyout, Influencer multi-recipient Payouts, and ledger.
-4. Deploy API/web/mobile configuration with exact origins and callback allowlists.
-5. Run every `INTEGRATION_CONTRACT.md` scenario on physical Android and independent reviewer devices.
-6. Add the missing root README/demo script and document fallback/presentation operations.
+These items are intentionally parked until the live demo loop is proven.
 
 ## Immediate next actions
 
-1. Begin the Trusted Platform durability gate with Supabase schema/seed data and private Storage policies.
-2. Implement genuine signed TUS upload plus completion/object verification and freeze its shared schemas.
-3. Implement persistent direct-video `source_url` jobs and the verified idempotent ElevenLabs webhook.
-4. Add committed automated contract tests for the validated auth, refresh, Bounty, Acceptance, Submission idempotency/cleanup, role, ownership, privacy, credential-startup, and media behavior.
-5. Consolidate duplicated contract/fixture sources or add committed drift checks.
-6. Add rotating persistent refresh sessions, Meta OAuth, and PIN rate limiting before real session integration.
-7. Connect the mobile app endpoint-by-endpoint only after the durable media gate is proven.
-8. Resolve the three unrelated mobile package/ESLint edits before any commit that includes them.
+1. Configure matching local Backend/mobile PIN and API/public URLs.
+2. Run the integrated Creator flow in the existing Android emulator with mock mode to verify UI behavior.
+3. Run one prepared real MP4 through ElevenLabs and Gemini; adjust only the selected Bounty's wording/normalization if transcription causes a false negative.
+4. After the Creator video reaches `AI_PASSED`, stage additional real MP4s through the Backend admin multipart endpoint before tapping **Start human review**.
+5. Scan the generated QR from an independent phone, rate every video, tap **Stop reviewing**, and confirm the same video-wise Scoreboard appears in mobile.
+6. Freeze the demo environment and presentation assets; do not resume production infrastructure work unless the working demo requires it.
 
 ## Change log
 
+### 2026-08-30 — Working local upload-to-scoreboard demo loop
+
+- Reprioritized all plans around the shortest working demo and explicitly deferred production infrastructure.
+- Connected the Expo Creator journey to Backend demo auth, Niches, Bounties, Acceptances, real multipart upload, status polling, QR review controls, and Scoreboard results.
+- Added Creator-owned Review Round lifecycle endpoints, local QR generation, reviewer-session isolation, vertical reviewer HTML, anonymous Ratings, and frozen video-wise ranking.
+- Replaced fake admin video metadata with real multipart MP4 staging for additional same-Bounty review videos.
+- Passed Backend build, mobile typecheck/lint/Expo config, repository diff checks, and a finite two-video upload/review/Scoreboard smoke in explicit mock-transcription mode.
+- Recorded real provider, integrated emulator, and physical-phone QR checks as the remaining presentation blockers.
+
 ### 2026-08-30 — Single-owner P0 contract and local-processing gate
 
-- Reframed the existing technical, integration, frontend, Backend, and frontend README plans around one owner executing sequential Client and Trusted Platform gates; no new structure plan was added.
-- Added universal envelopes, canonical demo auth/refresh/local Submission schemas, stable Maya/five-Bounty fixtures, exact public mappers, role isolation, canonical Acceptances, authoritative owned Submission behavior, and generic global 500s.
-- Replaced fake TUS advertising and FFmpeg/MP3 processing with honest local multipart MP4 handling, explicit transcription modes, direct original-video provider upload, and a minimal stateless refresh flow.
-- A semantic review initially found a contract/runtime mismatch and duplicate Submission creation; both High findings were fixed by separating the active multipart and target signed-TUS profiles and requiring local Submission idempotency with replay, active-Submission conflict, and uploaded-file cleanup behavior.
-- Removed predictable default JWT/PIN credentials by requiring explicit startup configuration and using non-working `.env.example` placeholders; PIN rate limiting remains a P1 hardening item.
-- Corrected stale FFmpeg wording in `TECHNICAL_PLAN.md` and removal wording in `docs/BACKEND_PLATFORM_PLAN.md`; shared-source duplication and the lack of committed automated tests remain follow-up constraints.
-- Passed final Backend build, mobile typecheck, repository whitespace, credential-startup failure, and schema-driven HTTP smoke validation covering exact fixtures, Acceptance and Submission idempotency, HTTP 409 active guards, file cleanup, invalid media, privacy, ownership, roles, refresh, and explicit mock processing; durable TUS, Supabase, real ElevenLabs media, and webhooks remain unvalidated and unimplemented.
+- Reframed technical, integration, frontend, Backend, and README plans around one sequential owner.
+- Added universal envelopes, canonical auth/refresh/local Submission schemas, stable fixtures, public mappers, role isolation, canonical Acceptances, authoritative owned Submission behavior, and generic global 500s.
+- Replaced fake TUS advertising and FFmpeg/MP3 processing with honest local multipart MP4 handling, explicit transcription modes, direct original-video provider upload, and local Submission idempotency.
+- Required explicit JWT/PIN startup configuration; PIN throttling remained deferred.
 
 ### 2026-08-30 — Direct-video transcription and emulator smoke
 
-- Confirmed from current ElevenLabs documentation that the STT convert API accepts video files/URLs directly and supports asynchronous webhooks with correlation metadata.
-- Made direct original-MP4 transcription the binding architecture across master, frontend, Backend, integration-contract, and status docs.
-- Marked the then-current FFmpeg/MP3 prototype path for removal; no Backend code was changed in that documentation task.
-- Booted the Pixel 9 AVD, repaired ADB discovery, installed Expo Go, and successfully opened the mobile demo.
-- Reconciled the remaining frontend/Backend roadmap into delivery stages.
+- Confirmed the direct-video ElevenLabs architecture and removed FFmpeg from the normal path.
+- Booted the Pixel 9 AVD, installed Expo Go, and successfully opened the then-mocked mobile demo.
 
 ### 2026-08-30 — Project status tracking
 
-- Added this canonical project status document.
-- Added persistent Kiro workspace guidance requiring status updates after meaningful project changes.
+- Added this canonical project status document and persistent workspace maintenance guidance.
 
 ### 2026-08-30 — Backend retrieval and verification
 
-- Pulled Backend commit `2217107` from GitHub and merged it with the Creator frontend.
-- Installed locked Backend dependencies and verified TypeScript compilation.
-- Passed health, demo authentication, and authenticated Bounty retrieval smoke checks.
-- Documented contract, upload, authorization, routing, fixture, and persistence blockers.
+- Pulled and merged the Backend implementation, installed locked dependencies, and passed initial build/health/auth/Bounty checks.
 
 ### 2026-08-30 — Creator frontend implementation
 
-- Added the dedicated `frontend` workspace and comprehensive design system.
-- Implemented the mocked Expo Creator journey from onboarding through Submission results.
-- Added canonical frontend contracts, demo data, and shared UI tokens.
-- Passed TypeScript, lint, Expo configuration, dependency, and Android export validation.
+- Added the Expo Creator app, design system, mocked Creator journey, shared contracts/demo data, and initial mobile validation.
 
 ## Maintenance rules
 

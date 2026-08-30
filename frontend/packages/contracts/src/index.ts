@@ -217,6 +217,32 @@ export const submissionCreateResultSchema = z.object({
 });
 export const submissionCreateResponseSchema = successEnvelopeSchema(submissionCreateResultSchema);
 
+export const reviewRoundSummarySchema = z.object({
+  id: z.uuid(),
+  bountyId: z.uuid(),
+  status: z.enum(Object.values(ReviewRoundStatus)),
+  submissionIds: z.array(z.uuid()).min(1).max(5),
+  openedAt: z.iso.datetime().nullable(),
+  closedAt: z.iso.datetime().nullable(),
+});
+
+export const scoreboardEntrySchema = z.object({
+  submissionId: z.uuid(),
+  originalFilename: z.string().min(1),
+  creatorDisplayName: z.string().min(1),
+  rank: z.number().int().positive(),
+  averageScore: z.number().min(0).max(5),
+  ratingCount: z.number().int().nonnegative(),
+});
+
+export const reviewRoundResultSchema = z.object({
+  reviewRound: reviewRoundSummarySchema,
+  reviewUrl: z.url(),
+  qrCodeDataUrl: z.string().min(1),
+  scoreboard: z.array(scoreboardEntrySchema),
+});
+export const reviewRoundResponseSchema = successEnvelopeSchema(reviewRoundResultSchema);
+
 export type Niche = z.infer<typeof nicheSchema>;
 export type CreatorProfile = z.infer<typeof creatorProfileSchema>;
 export type Deliverable = z.infer<typeof deliverableSchema>;
@@ -234,6 +260,9 @@ export type AdminLoginRequest = z.infer<typeof adminLoginRequestSchema>;
 export type AdminLoginResult = z.infer<typeof adminLoginResultSchema>;
 export type SubmissionCreateRequest = z.infer<typeof submissionCreateRequestSchema>;
 export type SubmissionCreateResult = z.infer<typeof submissionCreateResultSchema>;
+export type ReviewRoundSummary = z.infer<typeof reviewRoundSummarySchema>;
+export type ScoreboardEntry = z.infer<typeof scoreboardEntrySchema>;
+export type ReviewRoundResult = z.infer<typeof reviewRoundResultSchema>;
 export type SubmissionStatusValue = (typeof SubmissionStatus)[keyof typeof SubmissionStatus];
 
 export type SuccessEnvelope<T> = { data: T; meta: ApiMeta };

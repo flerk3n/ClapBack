@@ -30,8 +30,8 @@ export default function DiscoverScreen() {
   const topBounty = available[0];
   const nextBounty = available[1];
 
-  const handleAccept = (bounty: Bounty) => {
-    const acceptance = acceptBounty(bounty.id);
+  const handleAccept = async (bounty: Bounty) => {
+    const acceptance = await acceptBounty(bounty.id);
     setDetails(null);
     router.push({ pathname: '/acceptance/[id]', params: { id: acceptance.id } });
   };

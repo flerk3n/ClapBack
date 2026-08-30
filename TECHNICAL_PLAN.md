@@ -2,9 +2,22 @@
 
 ## 1. Feasibility verdict
 
-**The requested demo is feasible.** The full creator-to-scoreboard loop can be demonstrated with an Expo Android app, a React web application, a Node.js API, Supabase Postgres/Storage, Meta OAuth, ElevenLabs speech-to-text, and one structured-output LLM call.
+**The requested demo is feasible, and the active goal is the shortest working happy path—not a production-ready marketplace.**
 
-The prototype should deliberately avoid production marketplace complexity. The demo will use real creator authentication and metrics where Meta permits it, real video upload, real AI-assisted filtering, real reviewer ratings, and real scoreboard calculation. Brand management, app-wide public OAuth access, legal content-rights transfer, and movement of real money will be represented by fixed data and a mock payout ledger.
+### Current demo-first delivery directive
+
+Build and prove this sequence before any durability or security hardening:
+
+1. Demo Creator sign-in, niche selection, and the existing Bounty swipe/Acceptance flow.
+2. Real MP4 upload from the Expo app to the local Express Backend with visible upload and processing states.
+3. Direct ElevenLabs transcription of the uploaded MP4, followed by Gemini-backed Deliverable verification when configured.
+4. QR display only after `AI_PASSED`.
+5. A public, Bounty-scoped vertical reviewer page that plays AI-passed videos, shows the brand ask, and accepts 1–5 Ratings.
+6. A Creator-controlled **Stop reviewing** action that freezes and displays the video-wise Scoreboard in the app.
+
+For this gate, local disk uploads, in-memory workflow state, demo PIN sign-in, one Express process, and a same-origin reviewer page are intentional. Supabase, signed TUS, persistent jobs, provider webhooks, Meta OAuth, a separate React admin app, production session hardening, and real payouts are deferred until this loop works in the demo environment.
+
+The broader architecture below remains a future-production reference, not a prerequisite for the current demo gate. Brand management, public OAuth access, legal content-rights transfer, and movement of real money remain represented by fixed data and a mock payout ledger.
 
 ### Verified integration facts
 

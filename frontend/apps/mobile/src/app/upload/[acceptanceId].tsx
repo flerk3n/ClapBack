@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
@@ -15,7 +15,7 @@ import { type SelectedVideo, useMockApp } from '@/state/mock-app-provider';
 const MAX_SIZE_BYTES = 100 * 1024 * 1024;
 
 function VideoPreview({ uri }: { uri: string }) {
-  const player = useVideoPlayer(uri, (instance) => {
+  const player = useVideoPlayer(uri, instance => {
     instance.loop = true;
     instance.muted = true;
     instance.play();
@@ -24,7 +24,7 @@ function VideoPreview({ uri }: { uri: string }) {
 }
 
 function formatMegabytes(bytes: number) {
-  return `${Math.max(0.1, bytes / 1024 / 1024).toFixed(1)} MB`;
+  return bytes > 0 ? `${Math.max(0.1, bytes / 1024 / 1024).toFixed(1)} MB` : 'Size unavailable';
 }
 
 function formatDuration(seconds: number | null) {
@@ -41,11 +41,6 @@ export default function UploadScreen() {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-  }, []);
 
   const chooseVideo = async () => {
     setError(null);
@@ -55,16 +50,17 @@ export default function UploadScreen() {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['videos'],
-      quality: 1,
-      allowsEditing: false,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1, allowsEditing: false });
     if (result.canceled) return;
-
     const asset = result.assets[0];
     if (!asset) return;
     const sizeBytes = asset.fileSize ?? 0;
+    const fileName = asset.fileName ?? 'creator-submission.mp4';
+    const mimeType = asset.mimeType ?? 'video/mp4';
+    if (!fileName.toLowerCase().endsWith('.mp4') || mimeType !== 'video/mp4') {
+      setError('Choose an MP4 video for this demo.');
+      return;
+    }
     if (sizeBytes > MAX_SIZE_BYTES) {
       setError('Choose a video smaller than 100 MB for this demo.');
       return;
@@ -72,29 +68,28 @@ export default function UploadScreen() {
 
     setSelectedVideo({
       uri: asset.uri,
-      fileName: asset.fileName ?? 'creator-submission.mp4',
-      mimeType: asset.mimeType ?? 'video/mp4',
+      fileName,
+      mimeType,
       sizeBytes,
       durationSeconds: typeof asset.duration === 'number' ? asset.duration / 1000 : null,
     });
     Haptics.selectionAsync();
   };
 
-  const submitVideo = () => {
-    if (!selectedVideo || !acceptance) return;
+  const submitVideo = async () => {
+    if (!selectedVideo || !acceptance || uploading) return;
+    setError(null);
     setUploading(true);
-    setProgress(8);
-    intervalRef.current = setInterval(() => {
-      setProgress((current) => Math.min(current + 13, 94));
-    }, 160);
-
-    setTimeout(() => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+    setProgress(0);
+    try {
+      const submission = await createSubmission(acceptance.id, selectedVideo, setProgress);
       setProgress(100);
-      const submission = createSubmission(acceptance.id, selectedVideo);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => router.replace({ pathname: '/submission/[id]', params: { id: submission.id } }), 280);
-    }, 1300);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace({ pathname: '/submission/[id]', params: { id: submission.id } });
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Video upload failed. Try again.');
+      setUploading(false);
+    }
   };
 
   if (!acceptance || !bounty) {
@@ -108,7 +103,7 @@ export default function UploadScreen() {
         <View style={styles.titleBlock}>
           <AppText variant="eyebrow" tone="coral">{bounty.brandName} · {bounty.type}</AppText>
           <AppText variant="hero">Show us your cut.</AppText>
-          <AppText variant="bodyLarge" tone="soft">Choose a finished vertical video. You can preview it before anything leaves your device.</AppText>
+          <AppText variant="bodyLarge" tone="soft">Choose a finished MP4. The real upload and AI checks begin when you submit.</AppText>
         </View>
 
         {selectedVideo ? (
@@ -127,7 +122,7 @@ export default function UploadScreen() {
           <Pressable onPress={chooseVideo} style={({ pressed }) => [styles.picker, pressed && styles.pickerPressed]}>
             <View style={styles.uploadIcon}><Ionicons name="cloud-upload-outline" size={30} color={colors.coral} /></View>
             <AppText variant="subheading">Choose a video</AppText>
-            <AppText variant="body" tone="muted" style={styles.centerText}>MP4 or MOV · Vertical preferred · Up to 100 MB</AppText>
+            <AppText variant="body" tone="muted" style={styles.centerText}>MP4 · Vertical preferred · Up to 100 MB</AppText>
           </Pressable>
         )}
 
@@ -135,7 +130,7 @@ export default function UploadScreen() {
 
         <View style={styles.checklist}>
           <AppText variant="eyebrow" tone="muted">BEFORE YOU SUBMIT</AppText>
-          {bounty.deliverables.map((deliverable) => (
+          {bounty.deliverables.map(deliverable => (
             <View key={deliverable.id} style={styles.checkRow}>
               <Ionicons name="checkmark-circle-outline" size={20} color={colors.eucalyptus} />
               <AppText variant="body" style={styles.checkText}>{deliverable.label}</AppText>
@@ -148,11 +143,11 @@ export default function UploadScreen() {
         {uploading ? (
           <View style={styles.progressArea}>
             <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
-            <View style={styles.progressCopy}><AppText variant="caption" tone="muted">Uploading securely</AppText><AppText variant="caption">{progress}%</AppText></View>
+            <View style={styles.progressCopy}><AppText variant="caption" tone="muted">Uploading real video</AppText><AppText variant="caption">{progress}%</AppText></View>
           </View>
         ) : null}
         <AppButton label={uploading ? 'Uploading video' : 'Submit video'} icon="arrow-up" disabled={!selectedVideo} loading={uploading} onPress={submitVideo} />
-        <AppText variant="caption" tone="muted" style={styles.demoNote}>Demo upload uses the canonical Submission states; TUS connects when Backend is ready.</AppText>
+        <AppText variant="caption" tone="muted" style={styles.demoNote}>Keep the Backend running while the video is transcribed and checked.</AppText>
       </View>
     </Screen>
   );

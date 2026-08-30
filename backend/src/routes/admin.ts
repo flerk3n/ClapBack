@@ -1,12 +1,41 @@
-import { Router, Request, Response } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
+import fs from 'fs';
+import multer from 'multer';
+import path from 'path';
 import { db, ReviewRound } from '../db/memoryDb';
 import { adminMiddleware, signToken } from '../middleware/auth';
 import { requireEnvironmentValue } from '../shared/config';
 import { mapSubmissionSummary } from '../shared/publicMappers';
-import { ok, err, ErrorCode } from '../shared/response';
+import { err, ErrorCode, ok } from '../shared/response';
 
 const router = Router();
 const DEMO_ADMIN_PIN = requireEnvironmentValue('DEMO_ADMIN_PIN');
+const UPLOADS_DIR = path.resolve(process.cwd(), process.env.UPLOADS_DIR ?? 'uploads');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const adminUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, callback) => callback(null, UPLOADS_DIR),
+    filename: (_req, file, callback) => callback(null, `staged-${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname) || '.mp4'}`),
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => callback(null, file.mimetype === 'video/mp4' && file.originalname.toLowerCase().endsWith('.mp4')),
+});
+
+function uploadAdminMp4(req: Request, res: Response, next: NextFunction): void {
+  adminUpload.single('video')(req, res, error => {
+    if (!error) { next(); return; }
+    const code = error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE'
+      ? ErrorCode.VIDEO_TOO_LARGE
+      : ErrorCode.INVALID_VIDEO_TYPE;
+    err(res, req, 400, code, code === ErrorCode.VIDEO_TOO_LARGE ? 'MP4 exceeds the 100 MB demo limit' : 'A valid MP4 file is required');
+  });
+}
+
+function deleteAdminUpload(file: Express.Multer.File | undefined): void {
+  if (!file) return;
+  try { fs.unlinkSync(file.path); } catch { console.warn('[admin] Could not remove rejected demo upload'); }
+}
 
 router.post('/auth/login', (req: Request, res: Response): void => {
   const { pin } = req.body ?? {};
@@ -22,68 +51,64 @@ router.use(adminMiddleware);
 
 /**
  * POST /v1/admin/demo/submissions
- * Allows admin to stage demo submissions for testing and review rounds.
+ * Stages a real playable MP4 as an additional pre-approved demo Submission.
  */
-router.post('/demo/submissions', (req: Request, res: Response): void => {
+router.post('/demo/submissions', uploadAdminMp4, (req: Request, res: Response): void => {
+  const uploadedFile = req.file;
   try {
-    const { bountyId, creatorId, autoPass = true, filename = 'demo.mp4' } = req.body ?? {};
-
-    if (!bountyId) {
+    const { bountyId, creatorId } = req.body ?? {};
+    if (!uploadedFile) {
+      err(res, req, 400, ErrorCode.UPLOAD_NOT_FOUND, 'Attach an MP4 file in the video multipart field');
+      return;
+    }
+    if (typeof bountyId !== 'string' || !bountyId) {
+      deleteAdminUpload(uploadedFile);
       err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'bountyId is required');
       return;
     }
 
     const bounty = db.getBounty(bountyId);
     if (!bounty) {
+      deleteAdminUpload(uploadedFile);
       err(res, req, 404, ErrorCode.BOUNTY_NOT_FOUND, 'Bounty not found');
       return;
     }
 
-    let creator = creatorId ? db.getUser(creatorId) : db.getOrCreateDemoUser();
-    if (!creator) {
-      creator = db.getOrCreateDemoUser();
-    }
-
+    let creator = typeof creatorId === 'string' ? db.getUser(creatorId) : db.getOrCreateDemoUser();
+    if (!creator) creator = db.getOrCreateDemoUser();
     let acceptance = db.findAcceptance(creator.id, bountyId);
-    if (!acceptance) {
-      acceptance = db.createAcceptance(creator.id, bountyId, bounty.deadlineHours);
-    }
+    if (!acceptance) acceptance = db.createAcceptance(creator.id, bountyId, bounty.deadlineHours);
 
-    const sub = db.createSubmission({
+    const submission = db.createSubmission({
       bountyId,
       creatorId: creator.id,
       acceptanceId: acceptance.id,
-      storagePath: `uploads/demo-${Date.now()}.mp4`,
-      originalFilename: filename,
-      mimeType: 'video/mp4',
-      sizeBytes: 1024 * 1024 * 5,
-      durationSeconds: 30,
-      status: autoPass ? 'AI_PASSED' : 'QUEUED',
+      storagePath: uploadedFile.path,
+      originalFilename: uploadedFile.originalname,
+      mimeType: uploadedFile.mimetype,
+      sizeBytes: uploadedFile.size,
+      durationSeconds: null,
+      status: 'AI_PASSED',
       failureCode: null,
       failureMessage: null,
-      transcript: autoPass ? `Authentic review for ${bounty.productName}. Mentioning brand requirements.` : null,
-      aiSummary: autoPass ? 'Demonstration submission verified and passed.' : null,
-      aiConfidence: 0.99,
-      deliverableChecks: bounty.deliverables.map(d => ({
-        deliverableId: d.id,
-        label: d.label,
+      transcript: `Pre-approved demo video for ${bounty.productName}.`,
+      aiSummary: 'Pre-approved additional video staged for the live demo.',
+      aiConfidence: 1,
+      deliverableChecks: bounty.deliverables.map(deliverable => ({
+        deliverableId: deliverable.id,
+        label: deliverable.label,
         passed: true,
-        evidence: 'Demo verified evidence',
-        confidence: 0.99,
+        evidence: 'Pre-approved demo fixture',
+        confidence: 1,
       })),
       submittedAt: new Date().toISOString(),
     });
-
-    if (autoPass) {
-      db.updateAcceptance(acceptance.id, { status: 'SUBMITTED' });
-    }
-
-    ok(res, req, {
-      submission: mapSubmissionSummary(sub),
-    }, 201);
-  } catch (e) {
-    console.error('[admin] demo submission error:', e);
-    err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to create demo submission');
+    db.updateAcceptance(acceptance.id, { status: 'SUBMITTED' });
+    ok(res, req, { submission: mapSubmissionSummary(submission) }, 201);
+  } catch (error) {
+    deleteAdminUpload(uploadedFile);
+    console.error('[admin] demo submission error:', error);
+    err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to stage demo video');
   }
 });
 
@@ -164,9 +189,8 @@ router.post('/review-rounds/:reviewRoundId/open', (req: Request, res: Response):
       db.updateSubmission(subId, { status: 'IN_REVIEW' });
     }
 
-    const host = req.get('host') || 'localhost:3001';
-    const protocol = req.protocol || 'http';
-    const reviewUrl = `${protocol}://${host}/v1/review/${round.publicToken}/feed`;
+    const baseUrl = (process.env.PUBLIC_BASE_URL?.trim() || `${req.protocol}://${req.get('host') || 'localhost:3001'}`).replace(/\/$/, '');
+    const reviewUrl = `${baseUrl}/review/${round.publicToken}`;
 
     ok(res, req, {
       reviewRound: updated,

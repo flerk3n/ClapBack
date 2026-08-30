@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Clapback Human Review</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #090b0f; color: #fff; overflow: hidden; }
+    button { font: inherit; }
+    #loading, #error, #closed { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 28px; background: #090b0f; text-align: center; }
+    #error, #closed { display: none; }
+    .state-card { width: min(100%, 430px); padding: 28px; border: 1px solid #2a2f39; border-radius: 24px; background: #14171d; }
+    .state-card h1 { margin: 0 0 12px; font-size: 28px; }
+    .state-card p { margin: 0; color: #adb4c0; line-height: 1.5; }
+    .spinner { width: 42px; height: 42px; margin: 0 auto 18px; border: 4px solid #2a2f39; border-top-color: #ff7657; border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #feed { height: 100dvh; overflow-y: auto; scroll-snap-type: y mandatory; overscroll-behavior-y: contain; }
+    .slide { position: relative; width: 100%; height: 100dvh; overflow: hidden; scroll-snap-align: start; background: #111; }
+    .slide video { width: 100%; height: 100%; object-fit: cover; background: #111; }
+    .shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,.68) 0%, transparent 30%, transparent 53%, rgba(0,0,0,.9) 100%); }
+    .header { position: absolute; z-index: 2; top: max(18px, env(safe-area-inset-top)); left: 18px; right: 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .logo { font-size: 19px; font-weight: 900; letter-spacing: -.02em; }
+    .count { padding: 8px 11px; border-radius: 999px; background: rgba(15,17,22,.76); backdrop-filter: blur(12px); font-size: 12px; font-weight: 700; }
+    .ask { position: absolute; z-index: 3; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(5,7,10,.58); backdrop-filter: blur(5px); transition: opacity .2s ease; }
+    .ask.hidden { opacity: 0; pointer-events: none; }
+    .ask-card { width: min(100%, 420px); padding: 23px; border: 1px solid rgba(255,255,255,.16); border-radius: 24px; background: rgba(20,23,29,.94); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+    .eyebrow { margin: 0 0 8px; color: #ff8b70; font-size: 12px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+    .ask h2 { margin: 0 0 10px; font-size: 27px; line-height: 1.05; }
+    .ask p { margin: 0 0 14px; color: #d1d5dd; line-height: 1.45; }
+    .requirements { margin: 0 0 18px; padding-left: 19px; color: #adb4c0; font-size: 14px; line-height: 1.55; }
+    .watch { width: 100%; min-height: 50px; border: 0; border-radius: 15px; background: #ff7657; color: #16110f; font-weight: 900; cursor: pointer; }
+    .details { position: absolute; z-index: 2; left: 18px; right: 18px; bottom: max(22px, env(safe-area-inset-bottom)); display: grid; gap: 13px; }
+    .creator { font-size: 14px; font-weight: 800; }
+    .brief { max-width: 560px; margin-top: 4px; color: #e2e5ea; font-size: 14px; line-height: 1.38; text-shadow: 0 2px 10px #000; }
+    .rating { display: flex; align-items: center; gap: 8px; padding: 11px; border-radius: 18px; background: rgba(15,17,22,.82); backdrop-filter: blur(14px); }
+    .rating-label { margin-right: auto; padding-left: 3px; font-size: 13px; font-weight: 800; }
+    .score { width: 42px; height: 42px; border: 1px solid #3b414c; border-radius: 13px; background: #20242c; color: #fff; font-weight: 900; cursor: pointer; }
+    .score.selected { border-color: #ff7657; background: #ff7657; color: #16110f; }
+    .score:disabled { opacity: .55; cursor: default; }
+    .saved { min-height: 18px; color: #8be1b3; font-size: 12px; font-weight: 700; }
+    .scoreboard { margin: 20px 0 0; padding: 0; list-style: none; text-align: left; }
+    .scoreboard li { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 13px 0; border-top: 1px solid #2a2f39; }
+    .rank { color: #ff8b70; font-weight: 900; }
+    .metric { color: #adb4c0; font-size: 13px; }
+    @media (min-width: 700px) { .slide { width: min(100%, 540px); margin: 0 auto; } body { background: #050608; } }
+  </style>
+</head>
+<body>
+  <div id="loading"><div class="state-card"><div class="spinner"></div><h1>Opening the Review Round</h1><p>Loading the AI-approved videos…</p></div></div>
+  <div id="error"><div class="state-card"><h1>Review unavailable</h1><p id="error-message">This Review Round could not be loaded.</p></div></div>
+  <div id="closed"><div class="state-card"><p class="eyebrow">Review complete</p><h1>Final scoreboard</h1><p>Thanks for rating these videos.</p><ol id="scoreboard" class="scoreboard"></ol></div></div>
+  <main id="feed" aria-label="Bounty videos"></main>
+
+  <script>
+    const token = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
+    const storageKey = `clapback-review-${token}`;
+    const anonymousToken = localStorage.getItem(storageKey) || (crypto.randomUUID ? crypto.randomUUID() : `reviewer-${Date.now()}-${Math.random()}`);
+    localStorage.setItem(storageKey, anonymousToken);
+    let reviewerSessionId = '';
+    let roundStatus = 'OPEN';
+
+    async function request(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(reviewerSessionId ? { 'x-reviewer-session-id': reviewerSessionId } : {}),
+          ...(options.headers || {}),
+        },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error?.message || 'The Review Round request failed.');
+      return payload.data;
+    }
+
+    function showError(message) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error-message').textContent = message;
+      document.getElementById('error').style.display = 'grid';
+    }
+
+    function escapeText(value) {
+      const node = document.createElement('span');
+      node.textContent = value ?? '';
+      return node.innerHTML;
+    }
+
+    function renderFeed(data) {
+      roundStatus = data.status;
+      const feed = document.getElementById('feed');
+      feed.innerHTML = data.items.map((item, index) => `
+        <article class="slide" data-submission="${escapeText(item.submissionId)}">
+          <video src="${escapeText(item.playbackUrl)}" playsinline loop preload="metadata"></video>
+          <div class="shade"></div>
+          <header class="header"><span class="logo">clapback</span><span class="count">${index + 1} / ${data.items.length}</span></header>
+          <div class="ask">
+            <div class="ask-card">
+              <p class="eyebrow">${escapeText(item.brandName)} asks</p>
+              <h2>${escapeText(item.productName)}</h2>
+              <p>${escapeText(item.brief)}</p>
+              <ul class="requirements">${item.deliverables.map(value => `<li>${escapeText(value)}</li>`).join('')}</ul>
+              <button class="watch" type="button">Watch and rate</button>
+            </div>
+          </div>
+          <div class="details">
+            <div><div class="creator">${escapeText(item.creatorDisplayName)}</div><div class="brief">${escapeText(item.brief)}</div></div>
+            <div class="rating"><span class="rating-label">Rate 1–5</span>${[1,2,3,4,5].map(score => `<button class="score ${item.currentRating === score ? 'selected' : ''}" data-score="${score}" type="button">${score}</button>`).join('')}</div>
+            <div class="saved" aria-live="polite">${item.currentRating ? `Your rating: ${item.currentRating}` : ''}</div>
+          </div>
+        </article>`).join('');
+
+      feed.querySelectorAll('.slide').forEach(slide => {
+        const video = slide.querySelector('video');
+        slide.querySelector('.watch').addEventListener('click', () => {
+          slide.querySelector('.ask').classList.add('hidden');
+          video.muted = false;
+          video.play().catch(() => {});
+        });
+        slide.querySelectorAll('.score').forEach(button => button.addEventListener('click', async () => {
+          if (roundStatus !== 'OPEN') return;
+          const buttons = slide.querySelectorAll('.score');
+          buttons.forEach(value => value.disabled = true);
+          try {
+            const score = Number(button.dataset.score);
+            await request(`/v1/review/${encodeURIComponent(token)}/ratings/${encodeURIComponent(slide.dataset.submission)}`, {
+              method: 'PUT', body: JSON.stringify({ score }),
+            });
+            buttons.forEach(value => value.classList.toggle('selected', Number(value.dataset.score) === score));
+            slide.querySelector('.saved').textContent = `Saved — ${score}/5`;
+          } catch (error) {
+            slide.querySelector('.saved').textContent = error.message;
+          } finally {
+            buttons.forEach(value => value.disabled = roundStatus !== 'OPEN');
+          }
+        }));
+      });
+
+      const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+        const video = entry.target.querySelector('video');
+        if (!entry.isIntersecting) video.pause();
+      }), { threshold: .7 });
+      feed.querySelectorAll('.slide').forEach(slide => observer.observe(slide));
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    async function showScoreboard() {
+      const data = await request(`/v1/review/${encodeURIComponent(token)}/scoreboard`);
+      document.getElementById('scoreboard').innerHTML = data.entries.map(entry => `
+        <li><span class="rank">#${entry.rank}</span><span>${escapeText(entry.creatorDisplayName)}<br><span class="metric">${escapeText(entry.originalFilename)}</span></span><strong>${entry.averageScore.toFixed(1)} ★<br><span class="metric">${entry.ratingCount} ratings</span></strong></li>`).join('');
+      document.getElementById('closed').style.display = 'grid';
+    }
+
+    async function checkStatus() {
+      try {
+        const data = await request(`/v1/review/${encodeURIComponent(token)}/feed`);
+        roundStatus = data.status;
+        if (roundStatus === 'CLOSED') await showScoreboard();
+      } catch (_) {}
+    }
+
+    async function start() {
+      try {
+        const session = await request(`/v1/review/${encodeURIComponent(token)}/session`, {
+          method: 'POST', body: JSON.stringify({ anonymousToken }),
+        });
+        reviewerSessionId = session.reviewerSessionId;
+        const feed = await request(`/v1/review/${encodeURIComponent(token)}/feed`);
+        if (feed.status === 'CLOSED') await showScoreboard();
+        else renderFeed(feed);
+        setInterval(checkStatus, 3000);
+      } catch (error) { showError(error.message); }
+    }
+
+    start();
+  </script>
+</body>
+</html>

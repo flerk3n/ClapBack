@@ -1,12 +1,9 @@
-import { Router, Request, Response } from 'express';
-import { db } from '../db/memoryDb';
-import { ok, err, ErrorCode } from '../shared/response';
+import { Request, Response, Router } from 'express';
+import { db, ReviewRound } from '../db/memoryDb';
+import { err, ErrorCode, ok } from '../shared/response';
 
 const router = Router();
 
-/**
- * Middleware or helper to get anonymous reviewer session from header or body
- */
 function getReviewerSessionId(req: Request): string | null {
   return (
     (req.headers['x-reviewer-session-id'] as string) ||
@@ -17,10 +14,16 @@ function getReviewerSessionId(req: Request): string | null {
   );
 }
 
-/**
- * POST /v1/review/:token/session
- * Initializes or restores an anonymous reviewer session for this token.
- */
+function getValidSession(req: Request, res: Response, round: ReviewRound) {
+  const sessionId = getReviewerSessionId(req);
+  const session = sessionId ? db.getReviewerSession(sessionId) : undefined;
+  if (!session || session.reviewRoundId !== round.id) {
+    err(res, req, 401, ErrorCode.AUTH_REQUIRED, 'Start a reviewer session for this Review Round');
+    return null;
+  }
+  return session;
+}
+
 router.post('/:token/session', (req: Request, res: Response): void => {
   try {
     const round = db.findReviewRoundByToken(req.params.token as string);
@@ -28,8 +31,16 @@ router.post('/:token/session', (req: Request, res: Response): void => {
       err(res, req, 404, ErrorCode.REVIEW_ROUND_NOT_FOUND, 'Review round not found');
       return;
     }
+    if (round.status === 'DRAFT') {
+      err(res, req, 409, ErrorCode.REVIEW_ROUND_NOT_OPEN, 'Review round is not open yet');
+      return;
+    }
 
-    const anonymousToken = req.body?.anonymousToken || `anon_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const anonymousToken = req.body?.anonymousToken;
+    if (typeof anonymousToken !== 'string' || anonymousToken.length < 8 || anonymousToken.length > 200) {
+      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'anonymousToken must contain 8 to 200 characters');
+      return;
+    }
     const session = db.findOrCreateReviewerSession(round.id, anonymousToken);
 
     ok(res, req, {
@@ -37,16 +48,12 @@ router.post('/:token/session', (req: Request, res: Response): void => {
       reviewRoundId: round.id,
       status: round.status,
     });
-  } catch (e) {
-    console.error('[review] session error:', e);
+  } catch (error) {
+    console.error('[review] session error:', error);
     err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to create reviewer session');
   }
 });
 
-/**
- * GET /v1/review/:token/feed
- * Returns up to 5 videos for anonymous rating.
- */
 router.get('/:token/feed', (req: Request, res: Response): void => {
   try {
     const round = db.findReviewRoundByToken(req.params.token as string);
@@ -54,52 +61,49 @@ router.get('/:token/feed', (req: Request, res: Response): void => {
       err(res, req, 404, ErrorCode.REVIEW_ROUND_NOT_FOUND, 'Review round not found');
       return;
     }
+    if (round.status === 'DRAFT') {
+      err(res, req, 409, ErrorCode.REVIEW_ROUND_NOT_OPEN, 'Review round is not open yet');
+      return;
+    }
+    const session = getValidSession(req, res, round);
+    if (!session) return;
+    const sessionRatings = db.getSessionRatings(session.id);
 
-    const sessionId = getReviewerSessionId(req);
-    const sessionRatings = sessionId ? db.getSessionRatings(sessionId) : [];
+    const items = round.submissionIds.flatMap(submissionId => {
+      const submission = db.getSubmission(submissionId);
+      if (!submission) return [];
+      const bounty = db.getBounty(submission.bountyId);
+      const creator = db.getUser(submission.creatorId);
+      const currentRating = sessionRatings.find(rating => rating.submissionId === submissionId)?.score ?? null;
+      const filename = submission.storagePath.split('/').pop() || '';
 
-    const items = round.submissionIds.map(subId => {
-      const sub = db.getSubmission(subId);
-      const bounty = sub ? db.getBounty(sub.bountyId) : undefined;
-      const creator = sub ? db.getUser(sub.creatorId) : undefined;
-      const currentRating = sessionRatings.find(r => r.submissionId === subId)?.score ?? null;
-
-      // Local playback URL
-      const playbackUrl = sub ? `/uploads/${encodeURIComponent(sub.storagePath.split('/').pop() || '')}` : '';
-
-      return {
-        submissionId: subId,
+      return [{
+        submissionId,
         bountyId: bounty?.id ?? '',
         creatorDisplayName: creator?.displayName ?? 'Creator',
         creatorAvatarUrl: creator?.avatarUrl ?? null,
         brandName: bounty?.brandName ?? 'Brand',
         productName: bounty?.productName ?? 'Product',
         brief: bounty?.brief ?? '',
-        playbackUrl,
-        playbackUrlExpiresAt: new Date(Date.now() + 86400000).toISOString(),
+        deliverables: bounty?.deliverables.map(deliverable => deliverable.label) ?? [],
+        playbackUrl: `/uploads/${encodeURIComponent(filename)}`,
         currentRating,
-      };
+      }];
     });
-
-    const ratedCount = sessionRatings.filter(r => round.submissionIds.includes(r.submissionId)).length;
 
     ok(res, req, {
       reviewRoundId: round.id,
       status: round.status,
       items,
-      ratedCount,
+      ratedCount: sessionRatings.filter(rating => round.submissionIds.includes(rating.submissionId)).length,
       totalCount: round.submissionIds.length,
     });
-  } catch (e) {
-    console.error('[review] feed error:', e);
+  } catch (error) {
+    console.error('[review] feed error:', error);
     err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to load review feed');
   }
 });
 
-/**
- * PUT /v1/review/:token/ratings/:submissionId
- * Upserts a rating (score 1-5).
- */
 router.put('/:token/ratings/:submissionId', (req: Request, res: Response): void => {
   try {
     const round = db.findReviewRoundByToken(req.params.token as string);
@@ -107,9 +111,8 @@ router.put('/:token/ratings/:submissionId', (req: Request, res: Response): void 
       err(res, req, 404, ErrorCode.REVIEW_ROUND_NOT_FOUND, 'Review round not found');
       return;
     }
-
     if (round.status !== 'OPEN') {
-      err(res, req, 400, ErrorCode.REVIEW_ROUND_NOT_OPEN, 'Review round is closed or not yet open');
+      err(res, req, 409, ErrorCode.REVIEW_ROUND_NOT_OPEN, 'Review round is closed or not yet open');
       return;
     }
 
@@ -118,41 +121,29 @@ router.put('/:token/ratings/:submissionId', (req: Request, res: Response): void 
       err(res, req, 404, ErrorCode.SUBMISSION_NOT_IN_ROUND, 'Submission is not part of this review round');
       return;
     }
-
     const score = Number(req.body?.score);
     if (!Number.isInteger(score) || score < 1 || score > 5) {
       err(res, req, 400, ErrorCode.RATING_OUT_OF_RANGE, 'Rating must be an integer between 1 and 5');
       return;
     }
+    const session = getValidSession(req, res, round);
+    if (!session) return;
 
-    let sessionId = getReviewerSessionId(req);
-    if (!sessionId) {
-      // Auto-create session if not provided
-      const newSession = db.findOrCreateReviewerSession(round.id, `anon_${Date.now()}`);
-      sessionId = newSession.id;
-    }
-
-    db.upsertRating(round.id, sessionId, submissionId, score);
-
-    const sessionRatings = db.getSessionRatings(sessionId);
-    const ratedCount = sessionRatings.filter(r => round.submissionIds.includes(r.submissionId)).length;
-
+    db.upsertRating(round.id, session.id, submissionId, score);
+    const sessionRatings = db.getSessionRatings(session.id);
     ok(res, req, {
       submissionId,
       score,
-      reviewerSessionId: sessionId,
-      ratedCount,
+      reviewerSessionId: session.id,
+      ratedCount: sessionRatings.filter(rating => round.submissionIds.includes(rating.submissionId)).length,
       totalCount: round.submissionIds.length,
     });
-  } catch (e) {
-    console.error('[review] rating error:', e);
+  } catch (error) {
+    console.error('[review] rating error:', error);
     err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to submit rating');
   }
 });
 
-/**
- * GET /v1/review/:token/progress
- */
 router.get('/:token/progress', (req: Request, res: Response): void => {
   try {
     const round = db.findReviewRoundByToken(req.params.token as string);
@@ -160,26 +151,20 @@ router.get('/:token/progress', (req: Request, res: Response): void => {
       err(res, req, 404, ErrorCode.REVIEW_ROUND_NOT_FOUND, 'Review round not found');
       return;
     }
-
-    const sessionId = getReviewerSessionId(req);
-    const sessionRatings = sessionId ? db.getSessionRatings(sessionId) : [];
-    const ratedCount = sessionRatings.filter(r => round.submissionIds.includes(r.submissionId)).length;
-
+    const session = getValidSession(req, res, round);
+    if (!session) return;
+    const sessionRatings = db.getSessionRatings(session.id);
     ok(res, req, {
-      ratedCount,
+      ratedCount: sessionRatings.filter(rating => round.submissionIds.includes(rating.submissionId)).length,
       totalCount: round.submissionIds.length,
       status: round.status,
     });
-  } catch (e) {
-    console.error('[review] progress error:', e);
+  } catch (error) {
+    console.error('[review] progress error:', error);
     err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to fetch progress');
   }
 });
 
-/**
- * GET /v1/review/:token/scoreboard
- * Returns frozen scoreboard once closed.
- */
 router.get('/:token/scoreboard', (req: Request, res: Response): void => {
   try {
     const round = db.findReviewRoundByToken(req.params.token as string);
@@ -187,36 +172,28 @@ router.get('/:token/scoreboard', (req: Request, res: Response): void => {
       err(res, req, 404, ErrorCode.REVIEW_ROUND_NOT_FOUND, 'Review round not found');
       return;
     }
-
     if (round.status !== 'CLOSED') {
-      err(res, req, 400, ErrorCode.REVIEW_ROUND_NOT_OPEN, 'Scoreboard is only available after deadline closes');
+      err(res, req, 409, ErrorCode.REVIEW_ROUND_NOT_OPEN, 'Scoreboard is available after reviewing stops');
       return;
     }
 
-    const entries = db.getScoreboard(round.id).map(e => {
-      const sub = db.getSubmission(e.submissionId);
-      const creator = sub ? db.getUser(sub.creatorId) : undefined;
-      const bounty = sub ? db.getBounty(sub.bountyId) : undefined;
-      const payoutCents = (sub && bounty && creator) ? db.computeCreatorPayout(bounty, creator.clapScore) : 0;
-
+    const entries = db.getScoreboard(round.id).map(entry => {
+      const submission = db.getSubmission(entry.submissionId);
+      const creator = submission ? db.getUser(submission.creatorId) : undefined;
       return {
-        submissionId: e.submissionId,
-        rank: e.rank,
+        submissionId: entry.submissionId,
+        originalFilename: submission?.originalFilename ?? 'Video submission',
+        rank: entry.rank,
         creatorDisplayName: creator?.displayName ?? 'Creator',
         creatorAvatarUrl: creator?.avatarUrl ?? null,
-        averageScore: e.averageScore,
-        ratingCount: e.ratingCount,
-        payoutAmountCents: payoutCents,
-        payoutStatus: 'SIMULATED_PAID',
+        averageScore: entry.averageScore,
+        ratingCount: entry.ratingCount,
       };
     });
 
-    ok(res, req, {
-      status: round.status,
-      entries,
-    });
-  } catch (e) {
-    console.error('[review] scoreboard error:', e);
+    ok(res, req, { status: round.status, entries });
+  } catch (error) {
+    console.error('[review] scoreboard error:', error);
     err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to fetch scoreboard');
   }
 });

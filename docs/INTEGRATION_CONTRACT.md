@@ -7,6 +7,18 @@ This document is the binding interface between two architectural layers executed
 
 If either layer's implementation disagrees with this document, this document wins until the contract is deliberately revised. Do not silently rename a field, add a status, change a payload shape, or reproduce Trusted Platform calculations in the Client layer.
 
+## Active local demo profile
+
+The current integration target is deliberately smaller than the durable architecture described later in this document:
+
+- Expo calls the local Express API with demo Creator tokens.
+- `POST /v1/submissions` uploads one real MP4 as multipart form data and returns a queued Submission.
+- Mobile polls the canonical Submission statuses while Express runs direct ElevenLabs transcription and structured Deliverable verification in-process.
+- After `AI_PASSED`, Creator-scoped demo endpoints open/restore/close an in-memory Review Round and return a public `/review/:token` URL.
+- The same Express process serves local video playback, the vertical reviewer page, anonymous Ratings, and the frozen Scoreboard.
+
+This profile is the binding contract for the working-demo gate. Private Storage, signed TUS, persistent jobs, verified webhooks, Meta OAuth, and separate deployed web/admin clients are future profiles and must not block or be falsely advertised by the current demo.
+
 ## 1. Source-of-truth files
 
 When implementation starts, create these shared files:

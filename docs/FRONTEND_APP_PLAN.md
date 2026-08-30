@@ -12,6 +12,10 @@ The Client layer contains every user-facing client:
 
 The Client layer follows [`INTEGRATION_CONTRACT.md`](./INTEGRATION_CONTRACT.md). It does **not** implement database tables, workflow transitions, Meta secret exchange, ClapScore calculation, AI decisions, Scoreboard calculation, or Payout amounts.
 
+### Active demo gate
+
+The immediate Client target is one working path through the existing Expo app: Backend demo sign-in, niches, Bounty Acceptance, real local multipart MP4 upload with progress, real Submission polling, QR display after `AI_PASSED`, **Stop reviewing**, and the returned Scoreboard. The Reviewer surface is a lightweight page served by Express for this gate; a separate React/Vite reviewer/admin app, TUS client, Meta OAuth, offline hardening, and production deployment are deferred. Existing screens should be wired rather than rebuilt or polished further.
+
 ## 2. File boundary
 
 Client-layer work may edit:

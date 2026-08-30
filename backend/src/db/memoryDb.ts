@@ -338,6 +338,9 @@ export const db = {
     return round;
   },
   getReviewRound(id: string): ReviewRound | undefined { return reviewRounds.get(id); },
+  findReviewRoundBySubmission(submissionId: string): ReviewRound | undefined {
+    return Array.from(reviewRounds.values()).find(round => round.submissionIds.includes(submissionId));
+  },
   findReviewRoundByToken(token: string): ReviewRound | undefined {
     const tokenHash = hashToken(token);
     return Array.from(reviewRounds.values()).find(round => round.publicTokenHash === tokenHash);

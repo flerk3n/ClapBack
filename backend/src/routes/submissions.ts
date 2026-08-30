@@ -273,4 +273,127 @@ router.post('/:submissionId/retry', authMiddleware, (req: Request, res: Response
   err(res, req, 409, ErrorCode.PROCESSING_RETRY_NOT_ALLOWED, 'Post replacement media through multipart POST /v1/submissions with this acceptanceId');
 });
 
+function publicBaseUrl(): string {
+  return (process.env.PUBLIC_BASE_URL?.trim() || `http://localhost:${process.env.PORT ?? '3001'}`).replace(/\/$/, '');
+}
+
+function mapReviewRound(round: NonNullable<ReturnType<typeof db.getReviewRound>>) {
+  return {
+    id: round.id,
+    bountyId: round.bountyId,
+    status: round.status,
+    submissionIds: round.submissionIds,
+    openedAt: round.openedAt,
+    closedAt: round.closedAt,
+  };
+}
+
+function mapScoreboard(roundId: string) {
+  return db.getScoreboard(roundId).map(entry => {
+    const submission = db.getSubmission(entry.submissionId);
+    const creator = submission ? db.getUser(submission.creatorId) : undefined;
+    return {
+      submissionId: entry.submissionId,
+      originalFilename: submission?.originalFilename ?? 'Video submission',
+      creatorDisplayName: creator?.displayName ?? 'Creator',
+      rank: entry.rank,
+      averageScore: entry.averageScore,
+      ratingCount: entry.ratingCount,
+    };
+  });
+}
+
+async function mapReviewRoundResult(round: NonNullable<ReturnType<typeof db.getReviewRound>>) {
+  const reviewUrl = `${publicBaseUrl()}/review/${round.publicToken}`;
+  const { default: QRCode } = await import('qrcode');
+  const qrCodeDataUrl = await QRCode.toDataURL(reviewUrl, {
+    errorCorrectionLevel: 'M',
+    margin: 1,
+    width: 480,
+  });
+  return {
+    reviewRound: mapReviewRound(round),
+    reviewUrl,
+    qrCodeDataUrl,
+    scoreboard: round.status === 'CLOSED' ? mapScoreboard(round.id) : [],
+  };
+}
+
+router.post('/:submissionId/review-round', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const submission = getOwnedSubmission(req, res);
+    if (!submission) return;
+    if (!['AI_PASSED', 'IN_REVIEW', 'SCORED'].includes(submission.status)) {
+      err(res, req, 409, ErrorCode.INVALID_SUBMISSION_STATE, 'Submission must pass AI before human review starts');
+      return;
+    }
+
+    let round = db.findReviewRoundBySubmission(submission.id);
+    if (!round) {
+      const candidates = db.getSubmissionsForBounty(submission.bountyId)
+        .filter(item => item.status === 'AI_PASSED')
+        .sort((left, right) => (left.submittedAt ?? left.createdAt).localeCompare(right.submittedAt ?? right.createdAt));
+      const submissionIds = [submission.id, ...candidates.map(item => item.id).filter(id => id !== submission.id)].slice(0, 5);
+      const created = db.createReviewRound(submission.bountyId, submissionIds);
+      round = db.updateReviewRound(created.id, {
+        status: 'OPEN',
+        openedAt: new Date().toISOString(),
+      }) ?? created;
+      for (const submissionId of submissionIds) {
+        db.updateSubmission(submissionId, { status: 'IN_REVIEW' });
+      }
+    }
+
+    ok(res, req, await mapReviewRoundResult(round), round.status === 'OPEN' ? 201 : 200);
+  } catch {
+    console.error('[submissions] Could not start review round');
+    err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to start human review');
+  }
+});
+
+router.get('/:submissionId/review-round', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const submission = getOwnedSubmission(req, res);
+    if (!submission) return;
+    const round = db.findReviewRoundBySubmission(submission.id);
+    if (!round) {
+      err(res, req, 404, ErrorCode.REVIEW_ROUND_NOT_FOUND, 'Review round not found');
+      return;
+    }
+    ok(res, req, await mapReviewRoundResult(round));
+  } catch {
+    console.error('[submissions] Could not restore review round');
+    err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to load human review');
+  }
+});
+
+router.post('/:submissionId/review-round/close', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const submission = getOwnedSubmission(req, res);
+    if (!submission) return;
+    const round = db.findReviewRoundBySubmission(submission.id);
+    if (!round) {
+      err(res, req, 404, ErrorCode.REVIEW_ROUND_NOT_FOUND, 'Review round not found');
+      return;
+    }
+
+    let closedRound = round;
+    if (round.status !== 'CLOSED') {
+      db.computeAndSaveScoreboard(round);
+      closedRound = db.updateReviewRound(round.id, {
+        status: 'CLOSED',
+        closedAt: new Date().toISOString(),
+      }) ?? round;
+      for (const submissionId of round.submissionIds) {
+        db.updateSubmission(submissionId, { status: 'SCORED' });
+      }
+    }
+
+    ok(res, req, await mapReviewRoundResult(closedRound));
+  } catch {
+    console.error('[submissions] Could not close review round');
+    err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to stop human review');
+  }
+});
+
 export default router;

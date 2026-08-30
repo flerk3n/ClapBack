@@ -1,7 +1,6 @@
 import type { Acceptance, Bounty, CreatorProfile, SubmissionSummary } from '@clapback/contracts';
 import { AcceptanceStatus, SubmissionStatus } from '@clapback/contracts';
-import { demoBounties, demoCreator, niches } from '@clapback/demo-data';
-import * as SecureStore from 'expo-secure-store';
+import { demoBounties, demoCreator } from '@clapback/demo-data';
 import {
   createContext,
   type PropsWithChildren,
@@ -9,11 +8,9 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
-
-const DEMO_TOKEN_KEY = 'clapback.demo.access-token';
+import * as api from '@/lib/api';
 
 export type SelectedVideo = {
   uri: string;
@@ -34,9 +31,10 @@ type MockAppContextValue = {
   selectedNicheIds: number[];
   loginDemo: () => Promise<void>;
   logout: () => Promise<void>;
-  setCreatorNiches: (allNiches: boolean, nicheIds: number[]) => void;
-  acceptBounty: (bountyId: string) => Acceptance;
-  createSubmission: (acceptanceId: string, video: SelectedVideo) => SubmissionSummary;
+  setCreatorNiches: (allNiches: boolean, nicheIds: number[]) => Promise<void>;
+  acceptBounty: (bountyId: string) => Promise<Acceptance>;
+  createSubmission: (acceptanceId: string, video: SelectedVideo, onProgress: (percentage: number) => void) => Promise<SubmissionSummary>;
+  refreshSubmission: (submissionId: string) => Promise<SubmissionSummary>;
   getBounty: (bountyId: string) => Bounty | undefined;
   getAcceptance: (acceptanceId: string) => Acceptance | undefined;
   getSubmission: (submissionId: string) => SubmissionSummary | undefined;
@@ -44,221 +42,128 @@ type MockAppContextValue = {
 
 const MockAppContext = createContext<MockAppContextValue | null>(null);
 
-function makeUuid(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
-    const random = Math.floor(Math.random() * 16);
-    const value = character === 'x' ? random : (random & 0x3) | 0x8;
-    return value.toString(16);
-  });
-}
-
-function withSubmissionStatus(
-  submission: SubmissionSummary,
-  status: SubmissionSummary['status'],
-): SubmissionSummary {
-  const passed = status === SubmissionStatus.AI_PASSED;
-
-  return {
-    ...submission,
-    status,
-    aiSummary: passed
-      ? 'All required spoken Deliverables were detected.'
-      : submission.aiSummary,
-    aiConfidence: passed ? 0.96 : submission.aiConfidence,
-    deliverableChecks: passed
-      ? submission.deliverableChecks.map((check, index) => ({
-          ...check,
-          passed: true,
-          evidence: 'Matched in the transcript and content review.',
-          confidence: Math.max(0.9, 0.97 - index * 0.02),
-        }))
-      : submission.deliverableChecks,
-  };
-}
-
 export function MockAppProvider({ children }: PropsWithChildren) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [creator, setCreator] = useState<CreatorProfile>(demoCreator);
-  const [allNiches, setAllNiches] = useState(false);
-  const [selectedNicheIds, setSelectedNicheIds] = useState<number[]>([]);
+  const [bounties, setBounties] = useState<Bounty[]>(demoBounties);
   const [acceptances, setAcceptances] = useState<Acceptance[]>([]);
   const [submissions, setSubmissions] = useState<SubmissionSummary[]>([]);
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const loadWorkspace = useCallback(async () => {
+    const [nextBounties, nextAcceptances] = await Promise.all([api.listBounties(), api.listAcceptances()]);
+    setBounties(nextBounties);
+    setAcceptances(nextAcceptances);
+    setSubmissions(nextAcceptances.flatMap(item => item.latestSubmission ? [item.latestSubmission] : []));
+  }, []);
 
   useEffect(() => {
-    const scheduledTimers = timers.current;
-
-    SecureStore.getItemAsync(DEMO_TOKEN_KEY)
-      .then((token) => setIsAuthenticated(Boolean(token)))
+    api.restoreCreator()
+      .then(async restoredCreator => {
+        if (!restoredCreator) return;
+        setCreator(restoredCreator);
+        setIsAuthenticated(true);
+        await loadWorkspace();
+      })
       .catch(() => setIsAuthenticated(false))
       .finally(() => setIsHydrated(true));
-
-    return () => scheduledTimers.forEach(clearTimeout);
-  }, []);
+  }, [loadWorkspace]);
 
   const loginDemo = useCallback(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 520));
-    await SecureStore.setItemAsync(DEMO_TOKEN_KEY, 'demo-creator-access-token');
+    const result = await api.loginDemo();
+    setCreator(result.creator);
     setIsAuthenticated(true);
-  }, []);
+    await loadWorkspace();
+  }, [loadWorkspace]);
 
   const logout = useCallback(async () => {
-    await SecureStore.deleteItemAsync(DEMO_TOKEN_KEY);
+    await api.clearSession();
     setIsAuthenticated(false);
+    setCreator(demoCreator);
+    setBounties(demoBounties);
     setAcceptances([]);
     setSubmissions([]);
   }, []);
 
-  const setCreatorNiches = useCallback((useAllNiches: boolean, nicheIds: number[]) => {
-    const selected = useAllNiches ? [] : niches.filter((niche) => nicheIds.includes(niche.id));
-    setAllNiches(useAllNiches);
-    setSelectedNicheIds(useAllNiches ? [] : nicheIds);
-    setCreator((current) => ({ ...current, allNiches: useAllNiches, niches: selected }));
+  const setCreatorNiches = useCallback(async (useAllNiches: boolean, nicheIds: number[]) => {
+    const updatedCreator = await api.updateNiches(useAllNiches, nicheIds);
+    setCreator(updatedCreator);
+    setBounties(await api.listBounties());
   }, []);
 
-  const acceptBounty = useCallback(
-    (bountyId: string) => {
-      const existing = acceptances.find((item) => item.bountyId === bountyId);
-      if (existing) return existing;
+  const acceptBounty = useCallback(async (bountyId: string) => {
+    const acceptance = await api.acceptBounty(bountyId);
+    setAcceptances(current => [acceptance, ...current.filter(item => item.id !== acceptance.id)]);
+    return acceptance;
+  }, []);
 
-      const acceptance: Acceptance = {
-        id: makeUuid(),
-        bountyId,
-        creatorId: creator.userId,
-        status: AcceptanceStatus.ACTIVE,
-        acceptedAt: new Date().toISOString(),
-        latestSubmission: null,
-      };
-      setAcceptances((current) => [acceptance, ...current]);
-      return acceptance;
-    },
-    [acceptances, creator.userId],
-  );
+  const upsertSubmission = useCallback((submission: SubmissionSummary) => {
+    setSubmissions(current => [submission, ...current.filter(item => item.id !== submission.id)]);
+    setAcceptances(current => current.map(acceptance => acceptance.id === submission.acceptanceId
+      ? {
+          ...acceptance,
+          status: submission.status === SubmissionStatus.AI_PASSED
+            || submission.status === SubmissionStatus.IN_REVIEW
+            || submission.status === SubmissionStatus.SCORED
+            ? AcceptanceStatus.SUBMITTED
+            : acceptance.status,
+          latestSubmission: submission,
+        }
+      : acceptance));
+  }, []);
 
-  const updateSubmissionStatus = useCallback(
-    (submissionId: string, status: SubmissionSummary['status']) => {
-      setSubmissions((current) =>
-        current.map((submission) =>
-          submission.id === submissionId ? withSubmissionStatus(submission, status) : submission,
-        ),
-      );
-      setAcceptances((current) =>
-        current.map((acceptance) =>
-          acceptance.latestSubmission?.id === submissionId
-            ? {
-                ...acceptance,
-                status: AcceptanceStatus.SUBMITTED,
-                latestSubmission: withSubmissionStatus(acceptance.latestSubmission, status),
-              }
-            : acceptance,
-        ),
-      );
-    },
-    [],
-  );
+  const createSubmission = useCallback(async (
+    acceptanceId: string,
+    video: SelectedVideo,
+    onProgress: (percentage: number) => void,
+  ) => {
+    const submission = await api.uploadSubmission(acceptanceId, video, onProgress);
+    upsertSubmission(submission);
+    return submission;
+  }, [upsertSubmission]);
 
-  const createSubmission = useCallback(
-    (acceptanceId: string, video: SelectedVideo) => {
-      const acceptance = acceptances.find((item) => item.id === acceptanceId);
-      if (!acceptance) throw new Error('Acceptance not found');
+  const refreshSubmission = useCallback(async (submissionId: string) => {
+    const submission = await api.getSubmission(submissionId);
+    upsertSubmission(submission);
+    return submission;
+  }, [upsertSubmission]);
 
-      const bounty = demoBounties.find((item) => item.id === acceptance.bountyId);
-      const now = new Date().toISOString();
-      const submission: SubmissionSummary = {
-        id: makeUuid(),
-        bountyId: acceptance.bountyId,
-        creatorId: creator.userId,
-        acceptanceId,
-        originalFilename: video.fileName,
-        mimeType: video.mimeType,
-        sizeBytes: video.sizeBytes,
-        durationSeconds: video.durationSeconds,
-        status: SubmissionStatus.QUEUED,
-        failureCode: null,
-        failureMessage: null,
-        aiSummary: null,
-        aiConfidence: null,
-        deliverableChecks:
-          bounty?.deliverables.map((deliverable) => ({
-            deliverableId: deliverable.id,
-            label: deliverable.label,
-            passed: false,
-            evidence: 'Waiting for analysis',
-            confidence: 0,
-          })) ?? [],
-        createdAt: now,
-        submittedAt: now,
-      };
-
-      setSubmissions((current) => [submission, ...current]);
-      setAcceptances((current) =>
-        current.map((item) =>
-          item.id === acceptanceId
-            ? { ...item, status: AcceptanceStatus.SUBMITTED, latestSubmission: submission }
-            : item,
-        ),
-      );
-
-      const schedule = (delay: number, status: SubmissionSummary['status']) => {
-        const timer = setTimeout(() => {
-          updateSubmissionStatus(submission.id, status);
-          const timerIndex = timers.current.indexOf(timer);
-          if (timerIndex >= 0) timers.current.splice(timerIndex, 1);
-        }, delay);
-        timers.current.push(timer);
-      };
-      schedule(900, SubmissionStatus.TRANSCRIBING);
-      schedule(2500, SubmissionStatus.EVALUATING);
-      schedule(5000, SubmissionStatus.AI_PASSED);
-
-      return submission;
-    },
-    [acceptances, creator.userId, updateSubmissionStatus],
-  );
-
-  const visibleBounties = useMemo(() => {
-    if (allNiches || selectedNicheIds.length === 0) return demoBounties;
-    return demoBounties.filter((bounty) =>
-      bounty.niches.some((niche) => selectedNicheIds.includes(niche.id)),
-    );
-  }, [allNiches, selectedNicheIds]);
-
-  const value = useMemo<MockAppContextValue>(
-    () => ({
-      isHydrated,
-      isAuthenticated,
-      creator,
-      bounties: visibleBounties,
-      acceptances,
-      submissions,
-      allNiches,
-      selectedNicheIds,
-      loginDemo,
-      logout,
-      setCreatorNiches,
-      acceptBounty,
-      createSubmission,
-      getBounty: (bountyId) => demoBounties.find((bounty) => bounty.id === bountyId),
-      getAcceptance: (acceptanceId) => acceptances.find((item) => item.id === acceptanceId),
-      getSubmission: (submissionId) => submissions.find((item) => item.id === submissionId),
-    }),
-    [
-      isHydrated,
-      isAuthenticated,
-      creator,
-      visibleBounties,
-      acceptances,
-      submissions,
-      allNiches,
-      selectedNicheIds,
-      loginDemo,
-      logout,
-      setCreatorNiches,
-      acceptBounty,
-      createSubmission,
-    ],
-  );
+  const allNiches = creator.allNiches;
+  const selectedNicheIds = creator.niches.map(niche => niche.id);
+  const value = useMemo<MockAppContextValue>(() => ({
+    isHydrated,
+    isAuthenticated,
+    creator,
+    bounties,
+    acceptances,
+    submissions,
+    allNiches,
+    selectedNicheIds,
+    loginDemo,
+    logout,
+    setCreatorNiches,
+    acceptBounty,
+    createSubmission,
+    refreshSubmission,
+    getBounty: bountyId => bounties.find(bounty => bounty.id === bountyId),
+    getAcceptance: acceptanceId => acceptances.find(acceptance => acceptance.id === acceptanceId),
+    getSubmission: submissionId => submissions.find(submission => submission.id === submissionId),
+  }), [
+    acceptBounty,
+    acceptances,
+    allNiches,
+    bounties,
+    createSubmission,
+    creator,
+    isAuthenticated,
+    isHydrated,
+    loginDemo,
+    logout,
+    refreshSubmission,
+    selectedNicheIds,
+    setCreatorNiches,
+    submissions,
+  ]);
 
   return <MockAppContext.Provider value={value}>{children}</MockAppContext.Provider>;
 }

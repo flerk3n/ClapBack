@@ -26,8 +26,8 @@ export default function NicheSelectionScreen() {
     setSelectedIds([]);
   };
 
-  const continueToBounties = () => {
-    setCreatorNiches(allNiches, selectedIds);
+  const continueToBounties = async () => {
+    await setCreatorNiches(allNiches, selectedIds);
     router.replace('/(tabs)/discover');
   };
 
