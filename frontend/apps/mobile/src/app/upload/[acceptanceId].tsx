@@ -41,6 +41,12 @@ export default function UploadScreen() {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const maxDurationSeconds = bounty?.deliverables.reduce<number | null>(
+    (limit, deliverable) => deliverable.kind === 'MAX_DURATION'
+      ? deliverable.maxDurationSeconds
+      : limit,
+    null,
+  ) ?? null;
 
   const chooseVideo = async () => {
     setError(null);
@@ -66,12 +72,22 @@ export default function UploadScreen() {
       return;
     }
 
+    const durationSeconds = typeof asset.duration === 'number' ? asset.duration / 1000 : null;
+    if (maxDurationSeconds !== null && durationSeconds === null) {
+      setError(`Could not read this video's duration. Choose an MP4 under ${maxDurationSeconds} seconds.`);
+      return;
+    }
+    if (maxDurationSeconds !== null && durationSeconds !== null && durationSeconds >= maxDurationSeconds) {
+      setError(`Choose a video shorter than ${maxDurationSeconds} seconds for this Bounty.`);
+      return;
+    }
+
     setSelectedVideo({
       uri: asset.uri,
       fileName,
       mimeType,
       sizeBytes,
-      durationSeconds: typeof asset.duration === 'number' ? asset.duration / 1000 : null,
+      durationSeconds,
     });
     Haptics.selectionAsync();
   };

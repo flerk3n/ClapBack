@@ -13,16 +13,26 @@ export type PayoutKind = 'UGC_BUYOUT' | 'INFLUENCER_REWARD';
 export type UserRole = 'CREATOR' | 'DEMO_ADMIN';
 
 export const DEMO_CREATOR_FIXTURE_ID = 'ebf4b0b2-d96f-47d2-8f27-60139947f6b8';
+export const UNIQLO_MENS_OUTFIT_HAUL_BOUNTY_ID = 'e332e380-c016-4c42-8b3f-a8e393a6ae93';
 
 export interface Niche { id: number; slug: string; label: string }
-export interface Deliverable {
+type TranscriptDeliverable = {
   id: string;
   label: string;
-  kind: 'SPOKEN_PHRASE' | 'RELEVANCE';
   required: boolean;
   keywords: string[];
-  matchMode: 'ALL_KEYWORDS' | 'ANY_KEYWORD' | 'LLM_RELEVANCE';
-}
+} & (
+  | { kind: 'SPOKEN_PHRASE'; matchMode: 'ALL_KEYWORDS' | 'ANY_KEYWORD' }
+  | { kind: 'RELEVANCE'; matchMode: 'LLM_RELEVANCE' }
+);
+type DurationDeliverable = {
+  id: string;
+  label: string;
+  kind: 'MAX_DURATION';
+  required: boolean;
+  maxDurationSeconds: number;
+};
+export type Deliverable = TranscriptDeliverable | DurationDeliverable;
 export interface DeliverableCheck {
   deliverableId: string;
   label: string;
@@ -83,6 +93,7 @@ export interface Submission {
   mimeType: string;
   sizeBytes: number;
   durationSeconds: number | null;
+  isReviewFixture: boolean;
   status: SubmissionStatus;
   failureCode: string | null;
   failureMessage: string | null;
@@ -195,6 +206,16 @@ const BOUNTIES: Bounty[] = [
       { id: 'sound', label: 'Compare the before and after sound', kind: 'RELEVANCE', required: true, keywords: ['sound'], matchMode: 'LLM_RELEVANCE' },
     ],
     nicheIds: [6, 5], basePayoutCents: 20000, status: 'OPEN', displayDeadline: '3 days left', deadlineHours: 72, createdAt: FIXTURE_CREATED_AT,
+  },
+  {
+    id: UNIQLO_MENS_OUTFIT_HAUL_BOUNTY_ID, brandName: 'Uniqlo', brandLogoUrl: 'fixture://uniqlo',
+    productName: "Men's Outfit Haul", productImageUrl: 'fixture://uniqlo-mens-outfit-haul', type: 'UGC',
+    brief: "Show and describe a complete men’s outfit from your Uniqlo haul in under 30 seconds.",
+    deliverables: [
+      { id: 'mens-outfit', label: 'Show a men’s outfit', kind: 'RELEVANCE', required: true, keywords: ["men’s outfit", "men's outfit", 'menswear', 'outfit', 'look'], matchMode: 'LLM_RELEVANCE' },
+      { id: 'under-30-seconds', label: 'Keep the video under 30 seconds', kind: 'MAX_DURATION', required: true, maxDurationSeconds: 30 },
+    ],
+    nicheIds: [2, 7], basePayoutCents: 15000, status: 'OPEN', displayDeadline: '3 days left', deadlineHours: 72, createdAt: FIXTURE_CREATED_AT,
   },
   {
     id: '195509a2-2a00-4ba5-bf4a-383599e5cc64', brandName: 'Still Sunday', brandLogoUrl: 'fixture://still-sunday',
@@ -310,12 +331,12 @@ export const db = {
   },
   getLatestSubmission(creatorId: string, bountyId: string): Submission | undefined {
     return Array.from(submissions.values())
-      .filter(item => item.creatorId === creatorId && item.bountyId === bountyId)
+      .filter(item => !item.isReviewFixture && item.creatorId === creatorId && item.bountyId === bountyId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   },
   getLatestSubmissionByAcceptance(acceptanceId: string): Submission | undefined {
     return Array.from(submissions.values())
-      .filter(item => item.acceptanceId === acceptanceId)
+      .filter(item => !item.isReviewFixture && item.acceptanceId === acceptanceId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   },
   getSubmissionByCreateIdempotencyKey(creatorId: string, idempotencyKey: string): Submission | undefined {

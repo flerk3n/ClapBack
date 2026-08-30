@@ -12,9 +12,9 @@ If either layer's implementation disagrees with this document, this document win
 The current integration target is deliberately smaller than the durable architecture described later in this document:
 
 - Expo calls the local Express API with demo Creator tokens.
-- `POST /v1/submissions` uploads one real MP4 as multipart form data and returns a queued Submission.
-- Mobile polls the canonical Submission statuses while Express runs direct ElevenLabs transcription and structured Deliverable verification in-process.
-- Up to four MP4s placed directly in `backend/demo-videos/` are treated as pre-approved fixtures and automatically join the real Creator video's Bounty when human review starts; no Bounty ID or admin upload call is required.
+- `POST /v1/submissions` uploads one real MP4 plus optional picker-reported `durationSeconds` as multipart form data and returns a queued Submission.
+- Mobile polls the canonical Submission statuses while Express runs direct ElevenLabs transcription and structured Deliverable verification in-process. Phrase and maximum-duration checks are deterministic; relevance uses Gemini/OpenAI with keyword fallback.
+- Up to four MP4s placed directly in `backend/demo-videos/` are treated as manually curated, pre-approved fixtures and automatically join only the Uniqlo Men's Outfit Haul Bounty when human review starts; no Bounty ID or admin upload call is required.
 - After `AI_PASSED`, Creator-scoped demo endpoints open/restore/close an in-memory Review Round and return a public `/review/:token` URL.
 - The same Express process serves local video playback, the vertical reviewer page, anonymous Ratings, and the frozen Scoreboard.
 
@@ -138,6 +138,7 @@ export const SubmissionStatus = {
 export const DeliverableKind = {
   SPOKEN_PHRASE: 'SPOKEN_PHRASE',
   RELEVANCE: 'RELEVANCE',
+  MAX_DURATION: 'MAX_DURATION',
 } as const;
 
 export const MatchMode = {
@@ -195,11 +196,23 @@ export type CreatorProfile = {
 export type Deliverable = {
   id: string;
   label: string;
-  kind: 'SPOKEN_PHRASE' | 'RELEVANCE';
   required: boolean;
-  keywords: string[];
-  matchMode: 'ALL_KEYWORDS' | 'ANY_KEYWORD' | 'LLM_RELEVANCE';
-};
+} & (
+  | {
+      kind: 'SPOKEN_PHRASE';
+      keywords: string[];
+      matchMode: 'ALL_KEYWORDS' | 'ANY_KEYWORD';
+    }
+  | {
+      kind: 'RELEVANCE';
+      keywords: string[];
+      matchMode: 'LLM_RELEVANCE';
+    }
+  | {
+      kind: 'MAX_DURATION';
+      maxDurationSeconds: number;
+    }
+);
 
 export type Bounty = {
   id: string;
@@ -384,7 +397,7 @@ The Trusted Platform layer implements and validates endpoints. The Client layer 
 | `GET /v1/bounties` | Creator | none | `Bounty[]` | no |
 | `POST /v1/bounties/:bountyId/accept` | Creator | none | `Acceptance` | yes |
 | `GET /v1/acceptances` | Creator | none | `Acceptance[]` | no |
-| `POST /v1/submissions` | Creator | local profile: multipart `acceptanceId` + `video`; required `Idempotency-Key` header | `{ submission }` | yes |
+| `POST /v1/submissions` | Creator | local profile: multipart `acceptanceId` + optional `durationSeconds` + `video`; required `Idempotency-Key` header | `{ submission }` | yes |
 | `POST /v1/submissions/:submissionId/upload-complete` | Creator | reserved for durable TUS; unsupported locally | canonical `INVALID_SUBMISSION_STATE` error | no |
 | `GET /v1/submissions/:submissionId` | Creator | none | `SubmissionSummary` | no |
 | `POST /v1/submissions/:submissionId/retry` | Creator | local profile directs replacement media to `POST /v1/submissions` | canonical retry/instruction error | no |
@@ -412,7 +425,7 @@ Provider webhook routes are backend-only and are not imported into frontend endp
 
 The current Express prototype supports one explicit local-only upload path:
 
-1. The Client sends `multipart/form-data` to `POST /v1/submissions` with text field `acceptanceId`, file field `video`, and a required `Idempotency-Key` header.
+1. The Client sends `multipart/form-data` to `POST /v1/submissions` with text field `acceptanceId`, optional finite nonnegative text field `durationSeconds`, file field `video`, and a required `Idempotency-Key` header. Picker-reported duration is trusted only for this controlled local demo; a required `MAX_DURATION` Deliverable fails when duration is absent and uses strict `durationSeconds < maxDurationSeconds` semantics.
 2. The Trusted Platform derives Creator and Bounty from the owned active Acceptance; it never trusts a client-supplied Creator or Bounty ID.
 3. A replay with the same Creator/idempotency key returns the original Submission and discards the duplicate local file.
 4. A different key is rejected while that Acceptance already has a non-failed Submission. A replacement is allowed only after `AI_FAILED` or `PROCESSING_ERROR`.

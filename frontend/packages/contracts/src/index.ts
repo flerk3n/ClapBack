@@ -38,6 +38,7 @@ export const SubmissionStatus = {
 export const DeliverableKind = {
   SPOKEN_PHRASE: 'SPOKEN_PHRASE',
   RELEVANCE: 'RELEVANCE',
+  MAX_DURATION: 'MAX_DURATION',
 } as const;
 
 export const MatchMode = {
@@ -86,14 +87,28 @@ export const creatorProfileSchema = z.object({
   metricsFetchedAt: z.iso.datetime(),
 });
 
-export const deliverableSchema = z.object({
+const deliverableBaseSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
-  kind: z.enum(['SPOKEN_PHRASE', 'RELEVANCE']),
   required: z.boolean(),
-  keywords: z.array(z.string()),
-  matchMode: z.enum(['ALL_KEYWORDS', 'ANY_KEYWORD', 'LLM_RELEVANCE']),
 });
+
+export const deliverableSchema = z.discriminatedUnion('kind', [
+  deliverableBaseSchema.extend({
+    kind: z.literal('SPOKEN_PHRASE'),
+    keywords: z.array(z.string()),
+    matchMode: z.enum(['ALL_KEYWORDS', 'ANY_KEYWORD']),
+  }),
+  deliverableBaseSchema.extend({
+    kind: z.literal('RELEVANCE'),
+    keywords: z.array(z.string()),
+    matchMode: z.literal('LLM_RELEVANCE'),
+  }),
+  deliverableBaseSchema.extend({
+    kind: z.literal('MAX_DURATION'),
+    maxDurationSeconds: z.number().positive(),
+  }),
+]);
 
 export const bountySchema = z.object({
   id: z.uuid(),
@@ -210,6 +225,7 @@ export const idempotencyKeySchema = z.string().trim().min(1).max(200);
 
 export const localSubmissionCreateFieldsSchema = z.object({
   acceptanceId: z.uuid(),
+  durationSeconds: z.number().finite().nonnegative().optional(),
 });
 export const submissionCreateRequestSchema = localSubmissionCreateFieldsSchema;
 export const submissionCreateResultSchema = z.object({

@@ -2,7 +2,7 @@ import { NextFunction, Request, Response, Router } from 'express';
 import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
-import { db } from '../db/memoryDb';
+import { db, UNIQLO_MENS_OUTFIT_HAUL_BOUNTY_ID } from '../db/memoryDb';
 import { authMiddleware } from '../middleware/auth';
 import { transcribeMedia } from '../services/elevenLabs';
 import { verifyDeliverablesStructured } from '../services/llmVerifier';
@@ -81,7 +81,12 @@ async function processSubmission(submissionId: string): Promise<void> {
       submission.mimeType,
     );
     db.updateSubmission(submissionId, { transcript, status: 'EVALUATING' });
-    const verification = await verifyDeliverablesStructured(bounty.brief, bounty.deliverables, transcript);
+    const verification = await verifyDeliverablesStructured(
+      bounty.brief,
+      bounty.deliverables,
+      transcript,
+      { durationSeconds: submission.durationSeconds },
+    );
 
     if (verification.passed) {
       db.updateSubmission(submissionId, {
@@ -121,7 +126,7 @@ router.post('/', authMiddleware, uploadLocalMp4, (req: Request, res: Response): 
   const uploadedFile = req.file;
   try {
     const { userId } = (req as any).user;
-    const { acceptanceId } = req.body ?? {};
+    const { acceptanceId, durationSeconds: rawDurationSeconds } = req.body ?? {};
     if (!uploadedFile) {
       err(res, req, 400, ErrorCode.UPLOAD_NOT_FOUND, 'Attach an MP4 file in the video multipart field');
       return;
@@ -145,6 +150,21 @@ router.post('/', authMiddleware, uploadLocalMp4, (req: Request, res: Response): 
       deleteUploadedFile(uploadedFile);
       err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'acceptanceId must be a UUID');
       return;
+    }
+
+    let durationSeconds: number | null = null;
+    if (rawDurationSeconds !== undefined) {
+      if (typeof rawDurationSeconds !== 'string' || rawDurationSeconds.trim() === '') {
+        deleteUploadedFile(uploadedFile);
+        err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'durationSeconds must be a nonnegative number');
+        return;
+      }
+      durationSeconds = Number(rawDurationSeconds);
+      if (!Number.isFinite(durationSeconds) || durationSeconds < 0) {
+        deleteUploadedFile(uploadedFile);
+        err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'durationSeconds must be a nonnegative number');
+        return;
+      }
     }
 
     const acceptance = db.getAcceptanceById(acceptanceId);
@@ -191,7 +211,8 @@ router.post('/', authMiddleware, uploadLocalMp4, (req: Request, res: Response): 
       originalFilename: uploadedFile.originalname,
       mimeType: uploadedFile.mimetype,
       sizeBytes: uploadedFile.size,
-      durationSeconds: null,
+      durationSeconds,
+      isReviewFixture: false,
       status: 'QUEUED',
       failureCode: null,
       failureMessage: null,
@@ -320,6 +341,8 @@ async function mapReviewRoundResult(round: NonNullable<ReturnType<typeof db.getR
 }
 
 function addDemoFolderVideos(submission: NonNullable<ReturnType<typeof db.getSubmission>>): void {
+  if (submission.bountyId !== UNIQLO_MENS_OUTFIT_HAUL_BOUNTY_ID) return;
+
   const demoVideosDir = path.resolve(process.cwd(), process.env.DEMO_VIDEOS_DIR ?? 'demo-videos');
   if (!fs.existsSync(demoVideosDir)) return;
   const bounty = db.getBounty(submission.bountyId);
@@ -347,6 +370,7 @@ function addDemoFolderVideos(submission: NonNullable<ReturnType<typeof db.getSub
       mimeType: 'video/mp4',
       sizeBytes: stats.size,
       durationSeconds: null,
+      isReviewFixture: true,
       status: 'AI_PASSED',
       failureCode: null,
       failureMessage: null,

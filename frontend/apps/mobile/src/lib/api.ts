@@ -136,6 +136,9 @@ export function uploadSubmission(
     await loadTokens();
     const form = new FormData();
     form.append('acceptanceId', acceptanceId);
+    if (video.durationSeconds !== null) {
+      form.append('durationSeconds', String(video.durationSeconds));
+    }
     form.append('video', { uri: video.uri, name: video.fileName, type: video.mimeType } as unknown as Blob);
 
     const xhr = new XMLHttpRequest();

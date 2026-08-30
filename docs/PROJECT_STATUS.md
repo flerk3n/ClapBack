@@ -6,17 +6,17 @@
 
 ## Executive summary
 
-Clapback is focused on one working demo loop rather than a production marketplace. The local path is: demo Creator sign-in -> Niche selection -> Bounty swipe/Acceptance -> real mobile MP4 upload -> visible transcription/AI stages -> QR-linked human review -> 1–5 Ratings -> Creator-controlled stop -> frozen video-wise Scoreboard.
+Clapback is focused on one working demo loop rather than a production marketplace. The local path is: demo Creator sign-in -> Niche selection -> Bounty swipe/Acceptance -> real mobile MP4 upload -> visible transcription/AI stages -> QR-linked human review -> 1–5 Ratings -> Creator-controlled stop -> frozen video-wise Scoreboard. The canonical fixtures now include a Uniqlo **Men's Outfit Haul** UGC Bounty whose required Deliverables are semantic men's-outfit relevance and a deterministic video duration strictly under 30 seconds.
 
-Extra review videos now require no Bounty IDs, admin token, or upload command. The operator places two to four MP4 files directly in `backend/demo-videos/`. When the real Creator Submission reaches `AI_PASSED` and human review starts, the Backend automatically treats those folder files as pre-approved fixtures for that same Bounty and combines them with the Creator video. The Review Round remains capped at five videos total.
+Extra review videos require no Bounty IDs, admin token, or upload command. The operator places two to four manually curated Uniqlo outfit MP4s under 30 seconds in `backend/demo-videos/`. When a real Uniqlo Submission reaches `AI_PASSED` and human review starts, the Backend treats those folder files as pre-approved fixtures and combines them with the Creator video. Other Bounties never load this folder. The Review Round remains capped at five videos total.
 
-A finite local HTTP smoke passed this exact folder workflow in `TRANSCRIPTION_MODE=mock`: one real multipart Creator upload plus two folder MP4s produced a three-video feed, every video playback URL returned HTTP 200, a repeated start did not duplicate folder videos, Ratings of 5/4/3 were saved, and closing review returned the correct three-row Scoreboard. Backend/mobile builds and mobile lint pass.
+A finite local HTTP smoke passed the scoped workflow in `TRANSCRIPTION_MODE=mock`: six Bounties included Uniqlo, a real Uniqlo multipart upload preserved `durationSeconds: 29`, and its Review Round contained that upload plus the three existing folder MP4s. A GlowPop round in the same process contained only its Creator upload, proving the folder guard. Focused verifier checks observed that 29 seconds passes while exactly 30 seconds and unknown duration fail. Backend/mobile builds, mobile lint, and `git diff --check` pass.
 
 | Area | Status | Summary |
 | --- | --- | --- |
-| Creator mobile | Demo path implemented; live runtime check pending | Existing screens call real local auth, Niche, Bounty, Acceptance, multipart upload, polling, review, and Scoreboard APIs |
-| Upload and AI | Local path implemented | Creator MP4 runs through direct-video transcription mode and Deliverable verification |
-| Extra demo videos | Implemented and folder-smoke-tested | Up to four alphabetically selected MP4s from `backend/demo-videos/` join the current Bounty automatically as pre-approved fixtures |
+| Creator mobile | Demo path implemented; live runtime check pending | Existing screens call real local auth, Niche, Bounty, Acceptance, multipart upload with picker duration, polling, review, and Scoreboard APIs |
+| Upload and AI | Local path implemented | Creator MP4 runs through direct-video transcription plus phrase, relevance, and deterministic maximum-duration Deliverable verification |
+| Extra demo videos | Implemented and Bounty-scope-smoke-tested | Up to four alphabetically selected MP4s from `backend/demo-videos/` join only the Uniqlo Men's Outfit Haul Bounty as pre-approved fixtures |
 | Human review | Implemented and locally smoke-tested | Express serves vertical videos, brand asks, anonymous Ratings, and closed-round results at `/review/:token` |
 | QR and Scoreboard | Implemented and locally smoke-tested | Backend generates QR data; mobile stops review and displays Backend-ranked video rows |
 | Durable infrastructure | Deferred | Supabase, TUS, persistence, webhooks, OAuth, deployment hardening, and real payouts are outside the demo gate |
@@ -25,6 +25,7 @@ A finite local HTTP smoke passed this exact folder workflow in `TRANSCRIPTION_MO
 
 - Working demo-loop baseline: `37ce7d3` — `feat(demo): connect upload review and scoreboard loop`.
 - Status metadata correction: `c9f8c55` — `docs(status): record committed demo loop`.
+- Folder-backed review baseline: `a591479` — `feat(demo): load extra review videos from folder`.
 - The three pre-existing edits in `frontend/apps/mobile/eslint.config.js`, `frontend/apps/mobile/package.json`, and `frontend/apps/mobile/package-lock.json` remain unrelated and must stay outside focused demo commits.
 
 ## Active demo architecture
@@ -32,11 +33,11 @@ A finite local HTTP smoke passed this exact folder workflow in `TRANSCRIPTION_MO
 ```text
 Expo Creator app
   -> Express demo auth, Niches, Bounties, Acceptances
-  -> real multipart Creator MP4
+  -> real multipart Creator MP4 + optional picker durationSeconds
   -> local uploads/ + in-process transcription/verification
   -> AI_PASSED
   -> Creator starts human review
-       + automatically load up to four backend/demo-videos/*.mp4 fixtures
+       + for Uniqlo only, automatically load up to four backend/demo-videos/*.mp4 fixtures
   -> Backend-generated QR for /review/:token
   -> anonymous Ratings on vertical videos
   -> Creator stops review
@@ -53,8 +54,8 @@ Location: `frontend/apps/mobile`
 
 - Backend demo login with SecureStore access/refresh token persistence.
 - Backend-backed Niche selection, Bounty retrieval, Acceptance, and restoration.
-- Existing swipe UI and stable Bounty visuals.
-- Real MP4 selection, preview, XHR multipart upload, and byte progress.
+- Existing swipe UI and stable Bounty visuals, including Uniqlo Men's Outfit Haul.
+- Real MP4 selection, preview, XHR multipart upload, picker-duration preflight, and byte progress.
 - Polling of `QUEUED`, `TRANSCRIBING`, and `EVALUATING` to terminal AI state.
 - Pipeline checks for upload, transcription, AI testing, and human-review readiness.
 - Per-Deliverable evidence/confidence.
@@ -68,10 +69,12 @@ Location: `backend`
 - Creator-owned multipart MP4 upload with 100 MB cap and Submission idempotency.
 - In-process `QUEUED -> TRANSCRIBING -> EVALUATING -> AI_PASSED|AI_FAILED|PROCESSING_ERROR` progression.
 - Original MP4 sent directly to ElevenLabs in `elevenlabs` mode; no FFmpeg.
-- Structured Deliverable checks through deterministic phrase matching and Gemini/OpenAI/heuristic relevance evaluation.
+- Structured Deliverable checks through deterministic phrase and maximum-duration matching plus Gemini/OpenAI/heuristic relevance evaluation.
+- `MAX_DURATION` uses strict `<` semantics; the Uniqlo Creator upload must report a finite duration under 30 seconds, while unknown or exactly 30 seconds fails.
 - At review start, `DEMO_VIDEOS_DIR` defaults to `backend/demo-videos/` relative to the Backend working directory.
-- The Backend reads regular `.mp4` files alphabetically and uses at most four.
-- Folder files receive pre-approved Deliverable checks and join the real Submission's Bounty automatically.
+- The Backend reads regular `.mp4` files alphabetically and uses at most four only when the active Bounty is Uniqlo Men's Outfit Haul.
+- Folder files receive pre-approved Deliverable checks and join the Uniqlo Bounty automatically; they are manually curated rather than media-probed.
+- Internal review-fixture identity keeps those folder candidates out of Creator Acceptance `latestSubmission` restoration.
 - Repeating review start does not recreate or duplicate the folder candidates.
 - Both normal uploads and folder MP4s are served through the existing `/uploads/<filename>` playback path.
 - The obsolete admin multipart staging endpoint is removed.
@@ -90,7 +93,7 @@ Location: `backend/public/review.html`
 
 ## Folder usage
 
-1. Put two to four real MP4s directly in:
+1. Put two to four manually verified Uniqlo men's-outfit MP4s, each under 30 seconds, directly in:
 
    ```text
    backend/demo-videos/
@@ -104,8 +107,8 @@ Location: `backend/public/review.html`
    03-third.mp4
    ```
 
-3. Upload the real Creator video in mobile and wait for `AI_PASSED`.
-4. Tap **Start human review**. The folder videos are added automatically to that Bounty.
+3. Accept the Uniqlo Men's Outfit Haul Bounty, upload the real Creator video in mobile, and wait for `AI_PASSED`.
+4. Tap **Start human review**. The folder videos are added automatically to the Uniqlo round; starting review for another Bounty never loads them.
 5. Scan the QR, rate the videos, and tap **Stop reviewing**.
 
 Folder MP4s are ignored by Git. `backend/demo-videos/README.md` remains tracked. No Bounty ID or admin PIN is needed for this workflow.
@@ -137,19 +140,26 @@ Validated on 2026-08-30:
 - `cd backend && npm run build -- --noEmit` — passed.
 - `cd frontend/apps/mobile && npm run typecheck` — passed.
 - `cd frontend/apps/mobile && npm run lint` — passed.
+- `git diff --check` — passed.
 - Exact `qrcode` dependencies remain installed with zero reported vulnerabilities from the prior install.
 
-Final folder-backed finite smoke verified:
+Focused Uniqlo verifier smoke verified:
 
-1. Creator login, Bounty retrieval, and Acceptance.
-2. Multipart Creator MP4 upload and polling to `AI_PASSED`.
-3. Automatic discovery of `01-folder-demo.mp4` and `02-folder-demo.mp4` without admin authentication or a Bounty ID.
-4. Idempotent repeated Review Round start with exactly three total videos.
-5. Reviewer feed containing the Creator upload and both folder fixtures.
-6. HTTP 200 playback for all three URLs, including files served directly from `demo-videos/`.
-7. Ratings of 5, 4, and 3.
-8. Frozen three-row Scoreboard with averages 5, 4, and 3 in rank order.
-9. Cleanup of the temporary runner, folder fixtures, and generated Creator uploads.
+1. Six canonical Bounties include Uniqlo Men's Outfit Haul.
+2. The transcript/keyword fallback passes the required men's-outfit relevance check.
+3. `durationSeconds: 29` passes the strict under-30 Deliverable.
+4. `durationSeconds: 30` and `durationSeconds: null` fail that Deliverable.
+
+Scoped local HTTP smoke verified:
+
+1. Creator login, six-Bounty retrieval, and Uniqlo Acceptance.
+2. Multipart Creator MP4 upload persisted `durationSeconds: 29` and reached `AI_PASSED`.
+3. The Uniqlo Review Round contained the Creator upload plus all three existing `backend/demo-videos/` fixtures.
+4. A GlowPop Creator upload also reached `AI_PASSED`, but its Review Round contained only that one upload.
+5. Temporary smoke runners and generated Creator uploads were removed; existing operator fixture MP4s were preserved.
+6. A focused in-memory identity smoke verified that a newer review fixture cannot replace the real Creator upload as an Acceptance's `latestSubmission`.
+
+The prior end-to-end folder-backed review smoke remains valid and verified playback, idempotent review start, Ratings of 5/4/3, and the correctly ranked frozen Scoreboard.
 
 Not yet validated:
 
@@ -167,10 +177,12 @@ Not yet validated:
 | Real provider path is untested | Mock mode proves orchestration but not ElevenLabs credentials, codec support, latency, transcript wording, or Gemini output | Run one prepared Android MP4 with ElevenLabs and Gemini keys |
 | Integrated Expo journey has not been rerun | Static checks cannot prove picker permissions, XHR progress, navigation, polling, QR rendering, or Scoreboard layout | Run the complete Creator flow in the emulator/device |
 | Cross-device QR reachability is unproven | A QR using `localhost` or `10.0.2.2` will fail on audience phones | Use LAN/tunnel `PUBLIC_BASE_URL` and scan from another phone |
-| Presentation assets are not finalized | Missing or invalid folder videos would reduce the reviewer feed | Place and manually play the final 2–4 MP4 fixtures before the demo |
+| Presentation assets are not finalized | The three existing folder MP4s are loaded, but the Backend does not prove their duration or visual content | Manually confirm each final fixture shows a men's outfit, is under 30 seconds, and plays before the demo |
 
 ### P1 — useful but not required
 
+- Picker-reported duration is trusted in the controlled demo; forged multipart metadata could bypass a production duration policy.
+- Men's-outfit relevance is inferred from transcript/LLM text only; the Backend does not inspect video frames.
 - Add visible request errors and disable repeat taps on slower screens.
 - Add distinct fixture Creator display names if the Scoreboard should show different people; it is currently video-wise and filenames distinguish rows.
 - Add a simple reset control if repeated demos in one Backend process become cumbersome.
@@ -184,7 +196,7 @@ Not yet validated:
 
 ## Immediate next actions
 
-1. Place the final two to four MP4 fixtures in `backend/demo-videos/`.
+1. Manually verify the final two to four Uniqlo men's-outfit fixtures in `backend/demo-videos/` are under 30 seconds and play correctly.
 2. Configure matching mobile/Backend Creator PIN and reachable API/public URLs.
 3. Run the complete emulator flow in mock mode.
 4. Run one prepared real MP4 through ElevenLabs and Gemini.
@@ -192,6 +204,13 @@ Not yet validated:
 6. Freeze the demo environment; do not resume production infrastructure work unless the demo requires it.
 
 ## Change log
+
+### 2026-08-30 — Uniqlo outfit-haul demo Bounty
+
+- Added matching Backend/mobile Uniqlo Men's Outfit Haul UGC fixtures and a stable mobile visual.
+- Added first-class `MAX_DURATION` Deliverables, picker preflight, multipart duration persistence, and strict deterministic under-30 verification.
+- Restricted `backend/demo-videos/` fixtures to Uniqlo and documented their manually curated under-30 requirement.
+- Passed Backend build, mobile typecheck/lint, verifier boundary checks, and an HTTP smoke proving Uniqlo-only folder attachment.
 
 ### 2026-08-30 — Automatic folder-backed demo videos
 
