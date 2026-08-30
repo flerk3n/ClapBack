@@ -69,7 +69,7 @@ Location: `backend`
 - Creator-owned multipart MP4 upload with 100 MB cap and Submission idempotency.
 - In-process `QUEUED -> TRANSCRIBING -> EVALUATING -> AI_PASSED|AI_FAILED|PROCESSING_ERROR` progression.
 - Original MP4 sent directly to ElevenLabs in `elevenlabs` mode; no FFmpeg.
-- Structured Deliverable checks through deterministic phrase and maximum-duration matching plus Gemini/OpenAI/heuristic relevance evaluation.
+- Structured Deliverable checks through deterministic phrase and maximum-duration matching plus Gemini 2.5 Flash relevance evaluation. Relevance has no alternate model or heuristic fallback.
 - `MAX_DURATION` uses strict `<` semantics; the Uniqlo Creator upload must report a finite duration under 1 minute, while unknown or exactly 60 seconds fails.
 - At review start, `DEMO_VIDEOS_DIR` defaults to `backend/demo-videos/` relative to the Backend working directory.
 - The Backend reads regular `.mp4` files alphabetically and uses at most four only when the active Bounty is Uniqlo Men's Outfit Haul.
@@ -118,9 +118,15 @@ Folder MP4s are ignored by Git. `backend/demo-videos/README.md` remains tracked.
 Backend:
 
 ```env
+PORT=3001
 PUBLIC_BASE_URL=http://<reachable-host>:3001
+JWT_SECRET=<long-random-local-secret>
 DEMO_CREATOR_PIN=1234
+DEMO_ADMIN_PIN=<local-admin-pin>
 TRANSCRIPTION_MODE=mock|elevenlabs
+MOCK_TRANSCRIPT=<required-in-mock-mode>
+ELEVENLABS_API_KEY=<required-in-elevenlabs-mode>
+GEMINI_API_KEY=<required-for-relevance-deliverables>
 DEMO_VIDEOS_DIR=demo-videos
 ```
 
@@ -146,9 +152,14 @@ Validated on 2026-08-30:
 Focused Uniqlo verifier smoke verified:
 
 1. Six canonical Bounties include Uniqlo Men's Outfit Haul.
-2. The transcript/keyword fallback passes the required men's-outfit relevance check.
-3. `durationSeconds: 59` passes the strict under-1-minute Deliverable.
-4. `durationSeconds: 60` fails that Deliverable.
+2. `durationSeconds: 59` passes the strict under-1-minute Deliverable.
+3. `durationSeconds: 60` fails that Deliverable.
+
+Focused Gemini-only configuration smoke verified:
+
+1. A Relevance Deliverable rejects processing when `GEMINI_API_KEY` is missing instead of using another model or heuristic fallback.
+2. Deterministic spoken-phrase verification still passes without invoking an LLM.
+3. The Backend package has no OpenAI dependency.
 
 Scoped local HTTP smoke verified:
 
@@ -164,7 +175,7 @@ The prior end-to-end folder-backed review smoke remains valid and verified playb
 Not yet validated:
 
 - Real ElevenLabs transcription with a representative Android MP4.
-- Real Gemini response in the integrated flow; smoke used deterministic phrases and heuristic fallback.
+- Real Gemini 2.5 Flash response in the integrated flow; no live API key was used during validation.
 - Updated integrated journey running in Expo after API connection.
 - QR scan and playback from an independent physical phone over LAN/tunnel.
 
@@ -174,7 +185,7 @@ Not yet validated:
 
 | Blocker | Impact | Next check |
 | --- | --- | --- |
-| Real provider path is untested | Mock mode proves orchestration but not ElevenLabs credentials, codec support, latency, transcript wording, or Gemini output | Run one prepared Android MP4 with ElevenLabs and Gemini keys |
+| Real provider path is untested | Mock mode proves orchestration but not ElevenLabs credentials, codec support, latency, transcript wording, or a live Gemini 2.5 Flash response | Run one prepared Android MP4 with ElevenLabs and Gemini keys |
 | Integrated Expo journey has not been rerun | Static checks cannot prove picker permissions, XHR progress, navigation, polling, QR rendering, or Scoreboard layout | Run the complete Creator flow in the emulator/device |
 | Cross-device QR reachability is unproven | A QR using `localhost` or `10.0.2.2` will fail on audience phones | Use LAN/tunnel `PUBLIC_BASE_URL` and scan from another phone |
 | Presentation assets are not finalized | The three existing folder MP4s are loaded, but the Backend does not prove their duration or visual content | Manually confirm each final fixture shows a men's outfit, is under 1 minute, and plays before the demo |
@@ -204,6 +215,13 @@ Not yet validated:
 6. Freeze the demo environment; do not resume production infrastructure work unless the demo requires it.
 
 ## Change log
+
+### 2026-08-30 — Gemini 2.5 Flash-only verification
+
+- Locked Relevance Deliverables to the stable `gemini-2.5-flash` model.
+- Removed OpenAI and keyword-heuristic relevance fallbacks plus the OpenAI Backend dependency.
+- Documented required Backend/mobile environment values and fail-closed behavior when Gemini configuration or output is invalid.
+- Passed Backend build, dependency inspection, and focused missing-key/deterministic-check validation.
 
 ### 2026-08-30 — One-minute Uniqlo video limit
 

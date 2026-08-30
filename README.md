@@ -11,10 +11,10 @@
 ```bash
 cd backend
 cp .env.example .env
-# Edit .env and add your API keys:
-#   ELEVENLABS_API_KEY
-#   GEMINI_API_KEY
-#   OPENAI_API_KEY
+# Edit .env and configure:
+#   JWT_SECRET, DEMO_CREATOR_PIN, DEMO_ADMIN_PIN
+#   TRANSCRIPTION_MODE and its mode-specific values
+#   GEMINI_API_KEY (Gemini 2.5 Flash only)
 
 npm run dev
 # → API running on http://localhost:3001
@@ -23,7 +23,8 @@ npm run dev
 ### 2. Mobile App (Expo)
 
 ```bash
-cd mobile
+cd frontend/apps/mobile
+cp .env.example .env
 
 # For physical device: update EXPO_PUBLIC_API_URL in .env to your Mac's IP
 # e.g. EXPO_PUBLIC_API_URL=http://192.168.1.X:3001
@@ -43,10 +44,9 @@ npm start
    - **↑ Up**: Save for later
 3. **Active Tasks** — Tap any accepted bounty → Upload MP4
 4. **Verification Pipeline** — Watch in real time:
-   - 🎵 Audio extracted via FFmpeg
-   - 🎙️ Transcribed by ElevenLabs
-   - 🤖 Verified by Gemini Flash + GPT-4o-mini (dual consensus)
-   - 👥 5 simulated reviewers rate your video (10s)
+   - 🎙️ Original MP4 transcribed by ElevenLabs
+   - 🤖 Relevance verified only by Gemini 2.5 Flash
+   - 👥 Reviewers rate videos through the QR-linked page
    - ✅ Brand Approved!
 5. **Ledger** — See ClapCoins credited, Trust Score updated
 
@@ -64,17 +64,16 @@ ClapBack/
 └── backend/       # Node.js + Express (TypeScript)
     └── src/
         ├── routes/
-        ├── services/   # ElevenLabs, Gemini, OpenAI, FFmpeg
-        └── db/         # In-memory DB (10 seeded bounties)
+        ├── services/   # ElevenLabs and Gemini 2.5 Flash
+        └── db/         # In-memory demo database
 ```
 
 ## 🔑 API Keys Required
 
 | Key | Purpose |
 |-----|---------|
-| `ELEVENLABS_API_KEY` | Speech-to-text transcription |
-| `GEMINI_API_KEY` | Deliverable verification (LLM #1) |
-| `OPENAI_API_KEY` | Deliverable verification (LLM #2) |
+| `ELEVENLABS_API_KEY` | Speech-to-text transcription when `TRANSCRIPTION_MODE=elevenlabs` |
+| `GEMINI_API_KEY` | Relevance verification using only `gemini-2.5-flash` |
 
 ## 💡 ClapScore Logic
 

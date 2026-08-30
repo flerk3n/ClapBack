@@ -1,5 +1,4 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import OpenAI from 'openai';
 import { Deliverable, DeliverableCheck } from '../db/memoryDb';
 
 type SpokenDeliverable = Extract<Deliverable, { kind: 'SPOKEN_PHRASE' }>;
@@ -178,55 +177,27 @@ export async function verifyDeliverablesStructured(
 
   let llmResponse: any = null;
   if (pendingRelevanceDeliverables.length > 0) {
-    const prompt = buildStructuredPrompt(brief, pendingRelevanceDeliverables, rawTranscript);
-
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-        const result = await model.generateContent(prompt);
-        const cleaned = result.response.text().replace(/```json|```/g, '').trim();
-        llmResponse = JSON.parse(cleaned);
-      } catch {
-        console.warn('[llm] Gemini structured call failed; trying OpenAI');
-      }
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE' || apiKey.startsWith('replace_with_')) {
+      throw new Error('GEMINI_API_KEY must be configured for Gemini 2.5 Flash relevance verification');
     }
 
-    if (!llmResponse && process.env.OPENAI_API_KEY) {
-      try {
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const chat = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' },
-          temperature: 0.1,
-        });
-        const content = chat.choices[0]?.message?.content ?? '{}';
-        llmResponse = JSON.parse(content);
-      } catch {
-        console.warn('[llm] OpenAI structured call failed');
+    const prompt = buildStructuredPrompt(brief, pendingRelevanceDeliverables, rawTranscript);
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const result = await model.generateContent(prompt);
+      const cleaned = result.response.text().replace(/```json|```/g, '').trim();
+      llmResponse = JSON.parse(cleaned);
+      if (typeof llmResponse?.relevant !== 'boolean' || !Array.isArray(llmResponse.checks)) {
+        throw new Error('Gemini returned an invalid structured response');
       }
+    } catch {
+      throw new Error('Gemini 2.5 Flash relevance verification failed');
     }
   }
 
   if (!llmResponse) {
-    if (pendingRelevanceDeliverables.length > 0) {
-      console.log('[llm] Using heuristic evaluation fallback for deliverables');
-    }
-    for (const deliverable of pendingRelevanceDeliverables) {
-      const foundKeyword = deliverable.keywords.some(keyword =>
-        normalizedTranscript.includes(keyword.toLowerCase()));
-      checks.push({
-        deliverableId: deliverable.id,
-        label: deliverable.label,
-        passed: foundKeyword,
-        evidence: foundKeyword
-          ? 'Relevant theme words found in transcript'
-          : `Keywords not detected: ${deliverable.keywords.join(', ')}`,
-        confidence: 0.85,
-      });
-    }
-
     const orderedChecks = orderChecks(deliverables, checks);
     const failedRequired = requiredFailure(deliverables, orderedChecks);
     return {
@@ -234,8 +205,8 @@ export async function verifyDeliverablesStructured(
       checks: orderedChecks,
       aiSummary: failedRequired
         ? `Missing deliverable: ${failedRequired.label}`
-        : 'All required deliverable and relevance checks passed.',
-      aiConfidence: 0.88,
+        : 'All required deterministic deliverable checks passed.',
+      aiConfidence: 0.99,
       failureMessage: failedRequired
         ? `Verification failed: "${failedRequired.label}" was not met.`
         : null,
@@ -256,15 +227,7 @@ export async function verifyDeliverablesStructured(
         confidence: Number(checkFromLLM.confidence) || 0.9,
       });
     } else {
-      const passed = deliverable.keywords.some(keyword =>
-        normalizedTranscript.includes(keyword.toLowerCase()));
-      checks.push({
-        deliverableId: deliverable.id,
-        label: deliverable.label,
-        passed,
-        evidence: passed ? 'Keyword match' : 'Missing',
-        confidence: 0.8,
-      });
+      throw new Error(`Gemini 2.5 Flash response omitted deliverable "${deliverable.id}"`);
     }
   }
 

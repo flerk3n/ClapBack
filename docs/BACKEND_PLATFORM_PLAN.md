@@ -52,7 +52,7 @@ client route/navigation code
 - JOSE for app JWT signing/verification.
 - PostgreSQL-backed persistent job table and lightweight poller; no Redis.
 - ElevenLabs asynchronous speech-to-text from a signed video URL.
-- Gemini or OpenAI structured JSON output for relevance evaluation.
+- Gemini 2.5 Flash structured JSON output for relevance evaluation; no alternate model or heuristic relevance fallback.
 - Pino structured logs with request/correlation IDs and redaction.
 
 ## 4. Non-negotiable backend rules

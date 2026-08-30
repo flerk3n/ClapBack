@@ -10,7 +10,7 @@ Build and prove this sequence before any durability or security hardening:
 
 1. Demo Creator sign-in, niche selection, and the existing Bounty swipe/Acceptance flow.
 2. Real MP4 upload from the Expo app to the local Express Backend with visible upload and processing states.
-3. Direct ElevenLabs transcription of the uploaded MP4, followed by Gemini-backed Deliverable verification when configured.
+3. Direct ElevenLabs transcription of the uploaded MP4, followed by Gemini 2.5 Flash Deliverable relevance verification. No alternate LLM or heuristic relevance fallback is allowed.
 4. QR display only after `AI_PASSED`.
 5. A public, Bounty-scoped vertical reviewer page that plays AI-passed videos, shows the brand ask, and accepts 1–5 Ratings.
 6. A Creator-controlled **Stop reviewing** action that freezes and displays the video-wise Scoreboard in the app.
@@ -160,7 +160,7 @@ Recommended package choices:
 - Web: React, Vite, React Router, TanStack Query, native CSS scroll snap, and a small QR-code component.
 - API: Node.js, Fastify, Zod, PostgreSQL client, Supabase server SDK, JOSE for app JWTs, and Pino logging.
 - Data/media: Supabase Postgres and a private `submissions` Storage bucket.
-- AI: ElevenLabs STT plus one structured JSON call to Gemini or OpenAI.
+- AI: ElevenLabs STT plus one structured JSON call to Gemini 2.5 Flash; no alternate model fallback.
 - Deployment: one always-on Node service for both API traffic and the lightweight DB job poller, one static web deployment, and one Supabase project.
 
 ### 3.2 Why use a Node API instead of putting all logic in the clients
