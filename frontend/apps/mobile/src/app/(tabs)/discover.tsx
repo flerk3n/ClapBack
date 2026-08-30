@@ -20,7 +20,7 @@ export default function DiscoverScreen() {
   const [details, setDetails] = useState<Bounty | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const { height } = useWindowDimensions();
-  const cardHeight = Math.max(380, Math.min(520, height - 310));
+  const cardHeight = Math.max(420, Math.min(560, height - 315));
 
   const available = useMemo(
     () => bounties.filter((bounty) => !skippedIds.includes(bounty.id)),
@@ -55,11 +55,11 @@ export default function DiscoverScreen() {
   return (
     <Screen edges={['top']} style={styles.screen}>
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerTitleArea}>
           <AppText variant="caption" tone="muted">GOOD AFTERNOON</AppText>
           <AppText variant="heading">Find your next take.</AppText>
         </View>
-        <Avatar name={creator.displayName} size={46} />
+        <Avatar name={creator.displayName} size={44} />
       </View>
 
       <View style={styles.filterRow}>
@@ -254,19 +254,20 @@ export default function DiscoverScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { paddingTop: 0, paddingBottom: 0 },
-  header: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
-  filterRow: { height: 28, flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[1] },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.eucalyptus },
-  filterButton: { marginLeft: 'auto', width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  screen: { paddingTop: spacing[3], paddingBottom: 0 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: spacing[2] },
+  headerTitleArea: { gap: 2 },
+  filterRow: { height: 32, flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] },
+  liveDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.eucalyptus },
+  filterButton: { marginLeft: 'auto', width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   stackArea: { width: '100%', position: 'relative' },
   actions: {
-    flex: 1,
+    height: 72,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[5],
-    paddingBottom: spacing[2],
+    marginTop: spacing[2],
   },
   actionButton: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', ...shadows.floating },
   skipButton: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
