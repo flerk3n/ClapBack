@@ -17,6 +17,19 @@ export interface VerificationResult {
   failureMessage: string | null;
 }
 
+interface LlmDeliverableCheck {
+  deliverableId: string;
+  passed: boolean;
+  evidence: string;
+  confidence: number;
+}
+
+interface LlmVerificationResponse {
+  checks: LlmDeliverableCheck[];
+  overallConfidence: number;
+  summary: string;
+}
+
 function checkSpokenDeliverable(deliverable: SpokenDeliverable, normalizedTranscript: string): DeliverableCheck {
   const words = normalizedTranscript.toLowerCase();
 
@@ -77,9 +90,9 @@ function buildStructuredPrompt(
   deliverables: RelevanceDeliverable[],
   transcript: string,
 ): string {
-  return `You are a strict compliance reviewer for brand video deliverables.
+  return `You are a practical evaluator for explicit brand video deliverables.
 
-Bounty Brief:
+Bounty Brief (context only; do not infer extra pass requirements from it):
 "${brief}"
 
 Deliverables to check:
@@ -89,17 +102,19 @@ Video Transcript:
 """${transcript}"""
 
 Instructions:
-1. Evaluate if the transcript is genuinely relevant to the brand brief and product.
-2. For each deliverable, indicate if it passed based on the transcript, cite the exact evidence quote from the transcript, and provide confidence (0.0 to 1.0).
-3. Return ONLY valid JSON with this exact schema (no markdown, no backticks, just raw json):
+1. Judge each deliverable independently using only its explicit label and Keywords/Theme. The Bounty Brief provides context but does not add pass requirements.
+2. Pass a deliverable when the transcript clearly mentions or describes its listed theme or an obvious equivalent. Accept natural wording, minor transcription errors, singular/plural differences, casing, and hyphenation differences.
+3. Do not require a brand name, gender, fit, size, color, styling, scene, or other detail unless that exact requirement appears in the deliverable itself.
+4. For a T-shirt/Tshirt/tee deliverable, any clear T-shirt or tee reference passes. For example, "XYZ oversized T-shirt" passes without also saying "Uniqlo", "men's", or describing a complete outfit.
+5. Confidence expresses certainty in the cited evidence only. It is not a separate pass threshold.
+6. For each deliverable, cite the exact supporting transcript quote or give a concise explanation when it fails.
+7. Return ONLY valid JSON with this exact schema (no markdown, no backticks, just raw json):
 {
-  "relevant": boolean,
-  "relevanceEvidence": "string quote or explanation",
   "checks": [
     {
       "deliverableId": "string matching deliverable id",
       "passed": boolean,
-      "evidence": "string quote from transcript",
+      "evidence": "string quote or concise explanation",
       "confidence": number
     }
   ],
@@ -125,6 +140,61 @@ function requiredFailure(
   });
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isConfidence(value: unknown): value is number {
+  return typeof value === 'number'
+    && Number.isFinite(value)
+    && value >= 0
+    && value <= 1;
+}
+
+function parseStructuredResponse(
+  rawResponse: string,
+  deliverables: RelevanceDeliverable[],
+): LlmVerificationResponse {
+  const parsed: unknown = JSON.parse(rawResponse);
+  if (!isRecord(parsed)
+    || !Array.isArray(parsed.checks)
+    || !isConfidence(parsed.overallConfidence)
+    || typeof parsed.summary !== 'string'
+    || !parsed.summary.trim()
+    || parsed.checks.length !== deliverables.length) {
+    throw new Error('Gemini returned an invalid structured response');
+  }
+
+  const expectedIds = new Set(deliverables.map(deliverable => deliverable.id));
+  const seenIds = new Set<string>();
+  const checks: LlmDeliverableCheck[] = parsed.checks.map(rawCheck => {
+    if (!isRecord(rawCheck)
+      || typeof rawCheck.deliverableId !== 'string'
+      || !expectedIds.has(rawCheck.deliverableId)
+      || seenIds.has(rawCheck.deliverableId)
+      || typeof rawCheck.passed !== 'boolean'
+      || typeof rawCheck.evidence !== 'string'
+      || !rawCheck.evidence.trim()
+      || !isConfidence(rawCheck.confidence)) {
+      throw new Error('Gemini returned an invalid Deliverable check');
+    }
+
+    seenIds.add(rawCheck.deliverableId);
+    return {
+      deliverableId: rawCheck.deliverableId,
+      passed: rawCheck.passed,
+      evidence: rawCheck.evidence.trim(),
+      confidence: rawCheck.confidence,
+    };
+  });
+
+  return {
+    checks,
+    overallConfidence: parsed.overallConfidence,
+    summary: parsed.summary.trim(),
+  };
+}
+
 export async function verifyDeliverablesStructured(
   brief: string,
   deliverables: Deliverable[],
@@ -137,10 +207,8 @@ export async function verifyDeliverablesStructured(
     .map(deliverable => checkDurationDeliverable(deliverable, metadata.durationSeconds));
   const transcriptDeliverables = deliverables.filter(deliverable => deliverable.kind !== 'MAX_DURATION');
 
-  if (transcriptDeliverables.length > 0 && (!rawTranscript || rawTranscript.split(/\s+/).length < 3)) {
-    const transcriptIssue = rawTranscript
-      ? 'Transcript is too short to verify this deliverable'
-      : 'No speech or audio detected in video';
+  if (transcriptDeliverables.length > 0 && !rawTranscript) {
+    const transcriptIssue = 'No speech or audio detected in video';
     checks.push(...transcriptDeliverables.map(deliverable => ({
       deliverableId: deliverable.id,
       label: deliverable.label,
@@ -153,14 +221,10 @@ export async function verifyDeliverablesStructured(
     return {
       passed: !failedRequired,
       checks: orderedChecks,
-      aiSummary: rawTranscript
-        ? 'Audio verification failed: The transcript is too short to establish the required content.'
-        : 'Audio verification failed: No audible speech detected in the submitted video.',
+      aiSummary: 'Audio verification failed: No audible speech detected in the submitted video.',
       aiConfidence: 1,
       failureMessage: failedRequired
-        ? rawTranscript
-          ? 'The spoken description is too short to verify the required content.'
-          : 'No audible speech was detected in your video. Please ensure clear microphone audio.'
+        ? 'No audible speech was detected in your video. Please ensure clear microphone audio.'
         : null,
     };
   }
@@ -175,7 +239,7 @@ export async function verifyDeliverablesStructured(
     }
   }
 
-  let llmResponse: any = null;
+  let llmResponse: LlmVerificationResponse | null = null;
   if (pendingRelevanceDeliverables.length > 0) {
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE' || apiKey.startsWith('replace_with_')) {
@@ -188,10 +252,7 @@ export async function verifyDeliverablesStructured(
       const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       const result = await model.generateContent(prompt);
       const cleaned = result.response.text().replace(/```json|```/g, '').trim();
-      llmResponse = JSON.parse(cleaned);
-      if (typeof llmResponse?.relevant !== 'boolean' || !Array.isArray(llmResponse.checks)) {
-        throw new Error('Gemini returned an invalid structured response');
-      }
+      llmResponse = parseStructuredResponse(cleaned, pendingRelevanceDeliverables);
     } catch {
       throw new Error('Gemini 2.5 Flash relevance verification failed');
     }
@@ -214,17 +275,16 @@ export async function verifyDeliverablesStructured(
   }
 
   for (const deliverable of pendingRelevanceDeliverables) {
-    const checkFromLLM = llmResponse.checks?.find(
-      (check: any) => check.deliverableId === deliverable.id,
+    const checkFromLLM = llmResponse.checks.find(
+      check => check.deliverableId === deliverable.id,
     );
     if (checkFromLLM) {
       checks.push({
         deliverableId: deliverable.id,
         label: deliverable.label,
-        passed: Boolean(checkFromLLM.passed),
-        evidence: checkFromLLM.evidence
-          || (checkFromLLM.passed ? 'Verified by LLM' : 'Missing required theme'),
-        confidence: Number(checkFromLLM.confidence) || 0.9,
+        passed: checkFromLLM.passed,
+        evidence: checkFromLLM.evidence,
+        confidence: checkFromLLM.confidence,
       });
     } else {
       throw new Error(`Gemini 2.5 Flash response omitted deliverable "${deliverable.id}"`);
@@ -232,23 +292,17 @@ export async function verifyDeliverablesStructured(
   }
 
   const orderedChecks = orderChecks(deliverables, checks);
-  const isRelevant = llmResponse.relevant !== false;
   const failedRequired = requiredFailure(deliverables, orderedChecks);
-  const passed = isRelevant && !failedRequired;
-
-  let failureMessage: string | null = null;
-  if (!isRelevant) {
-    failureMessage = 'Video content does not appear relevant to the brand brief or product.';
-  } else if (failedRequired) {
-    failureMessage = `Missing required deliverable: "${failedRequired.label}".`;
-  }
+  const passed = !failedRequired;
+  const failureMessage = failedRequired
+    ? `Missing required deliverable: "${failedRequired.label}".`
+    : null;
 
   return {
     passed,
     checks: orderedChecks,
-    aiSummary: llmResponse.summary
-      || (passed ? 'All required deliverables detected.' : failureMessage || 'Failed deliverables check.'),
-    aiConfidence: Number(llmResponse.overallConfidence) || 0.95,
+    aiSummary: llmResponse.summary,
+    aiConfidence: llmResponse.overallConfidence,
     failureMessage,
   };
 }

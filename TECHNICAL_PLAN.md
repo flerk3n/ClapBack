@@ -713,16 +713,15 @@ The demo has one terminal payout state, `SIMULATED_PAID`. This is enough to show
    - store normalized transcript;
    - enqueue `EVALUATE_TRANSCRIPT`.
 6. Run deterministic checks before the LLM:
-   - transcript has a minimum useful word count;
    - all exact required codes/phrases appear after case/punctuation normalization;
-   - no required transcript is entirely empty.
-7. Send bounty brief, individual deliverables, and transcript to the LLM with a strict JSON schema.
-8. Require one result per deliverable containing `passed`, `evidence`, and `confidence`, plus an overall relevance result.
+   - reject an entirely empty transcript when transcript-based Deliverables exist.
+7. Send the Bounty brief as context, plus individual Deliverables and the transcript, to the LLM with a strict JSON schema.
+8. Require one result per Deliverable containing `passed`, `evidence`, and `confidence`.
 9. Reject malformed model output rather than guessing; retry it as a processing error.
 10. Use this pass rule:
     - every required spoken phrase passes deterministic matching;
-    - relevance passes the LLM check;
-    - overall confidence meets a configured threshold.
+    - every required Relevance Deliverable passes its LLM check;
+    - confidence is explanatory evidence metadata, not a separate pass threshold.
 11. Persist all criteria in `deliverable_checks`.
 12. Mark compliant videos `AI_PASSED`; mark others `AI_FAILED` with a user-safe reason such as “The required code CLAP20 was not detected.”
 13. Never show raw chain-of-thought. Show only evidence snippets and failed criteria.

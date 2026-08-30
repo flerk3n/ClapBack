@@ -248,9 +248,11 @@ The resulting round contains one real Creator upload plus the curated fixtures, 
 | --- | --- |
 | `SPOKEN_PHRASE` | Deterministic transcript matching |
 | `MAX_DURATION` | Deterministic strict duration comparison |
-| `RELEVANCE` | Structured Gemini 2.5 Flash response only |
+| `RELEVANCE` | Deliverable-focused Gemini 2.5 Flash response only |
 
-The Uniqlo duration rule is strict: `59.99` seconds passes, while `60` seconds or unknown duration fails. The current mobile demo trusts duration reported by the Expo picker; production-grade media probing is deferred.
+Relevance checks use the Bounty brief as context but pass or fail only against each explicit Deliverable. For the Uniqlo check, any clear transcript reference to a T-shirt, tshirt, or tee—including wording such as “XYZ oversized T-shirt”—passes without requiring the Creator to also say Uniqlo, men's, fit, or styling details. Confidence percentages are evidence-quality indicators, not pass thresholds.
+
+The current verifier evaluates transcripts rather than video frames, so visual-only T-shirt presence without a spoken transcript reference is not confirmed. The Uniqlo duration rule is strict: `59.99` seconds passes, while `60` seconds or unknown duration fails. The current mobile demo trusts duration reported by the Expo picker; production-grade media probing is deferred.
 
 ## Validation
 

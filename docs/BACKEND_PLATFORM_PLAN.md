@@ -334,20 +334,19 @@ ElevenLabs documents direct video/file input, `source_url`, asynchronous webhook
 
 1. Load Bounty Deliverables and normalized transcript.
 2. Run deterministic transcript prechecks:
-   - minimum useful word count;
    - required exact codes after normalization;
-   - keyword matching according to `MatchMode`;
+   - spoken-phrase matching according to `MatchMode`;
    - required transcript not empty.
 3. Persist deterministic Deliverable Check evidence.
 4. If an exact mandatory check fails, skip unnecessary LLM approval and mark `AI_FAILED`.
-5. For relevance checks, call the selected LLM with strict structured output.
+5. For Relevance checks, call Gemini 2.5 Flash with strict structured output and treat the Bounty brief as context rather than additional requirements.
 6. Validate the LLM response through a server-side schema.
 7. Require one result for every expected Deliverable.
 8. Reject malformed or incomplete output into retryable job failure, not a guessed pass.
-9. Compute final pass in backend code:
+9. Compute final pass in Backend code:
    - all required deterministic checks pass;
-   - relevance passes;
-   - configured confidence threshold passes.
+   - every required Relevance Deliverable passes its LLM check;
+   - confidence remains explanatory metadata rather than a pass threshold.
 10. Set `AI_PASSED` or `AI_FAILED` transactionally with Deliverable Checks.
 11. Return a user-safe `failureMessage` such as a missing required code.
 12. Never return chain-of-thought or provider prompts.

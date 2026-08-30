@@ -10,7 +10,7 @@ Clapback is focused on one working demo loop rather than a production marketplac
 
 Extra review videos require no Bounty IDs, admin token, or upload command. The operator places two to four manually curated Uniqlo men's T-shirt MP4s under 1 minute in `backend/demo-videos/`. When a real Uniqlo Submission reaches `AI_PASSED` and human review starts, the Backend treats those folder files as pre-approved fixtures and combines them with the Creator video. Other Bounties never load this folder. The Review Round remains capped at five videos total.
 
-A finite local HTTP smoke passed the scoped workflow in `TRANSCRIPTION_MODE=mock`: six Bounties included Uniqlo, a real Uniqlo multipart upload preserved `durationSeconds: 29`, and its Review Round contained that upload plus the three existing folder MP4s. A GlowPop round in the same process contained only its Creator upload, proving the folder guard. A focused no-network verifier smoke confirmed Backend/mobile T-shirt fixture parity, a men's T-shirt transcript passes, the previous outfit-only transcript fails, 59 seconds passes, and exactly 60 seconds fails. Backend/mobile builds and mobile lint pass.
+A finite local HTTP smoke passed the scoped workflow in `TRANSCRIPTION_MODE=mock`: six Bounties included Uniqlo, a real Uniqlo multipart upload preserved `durationSeconds: 29`, and its Review Round contained that upload plus the three existing folder MP4s. A GlowPop round in the same process contained only its Creator upload, proving the folder guard. A focused no-network verifier smoke confirmed that `tshirt`, `nice tee`, and `XYZ oversized T-shirt` pass at 80% confidence without brand, gender, fit, or styling language; outfit-only and empty transcripts fail; and unknown or exactly 60-second durations still fail. Backend/mobile builds and mobile lint pass.
 
 | Area | Status | Summary |
 | --- | --- | --- |
@@ -71,6 +71,8 @@ Location: `backend`
 - In-process `QUEUED -> TRANSCRIBING -> EVALUATING -> AI_PASSED|AI_FAILED|PROCESSING_ERROR` progression.
 - Original MP4 sent directly to ElevenLabs in `elevenlabs` mode; no FFmpeg.
 - Structured Deliverable checks through deterministic phrase and maximum-duration matching plus Gemini 2.5 Flash relevance evaluation. Relevance has no alternate model or heuristic fallback.
+- Relevance pass/fail is controlled only by each explicit required Deliverable; the brief is context, short non-empty transcripts are allowed, and confidence is display metadata rather than a threshold.
+- Gemini output fails closed unless it contains exactly one valid check per expected Relevance Deliverable, boolean pass values, non-empty evidence/summary, and finite confidence values from 0 to 1.
 - `MAX_DURATION` uses strict `<` semantics; the Uniqlo Creator upload must report a finite duration under 1 minute, while unknown or exactly 60 seconds fails.
 - At review start, `DEMO_VIDEOS_DIR` defaults to `backend/demo-videos/` relative to the Backend working directory.
 - The Backend reads regular `.mp4` files alphabetically and uses at most four only when the active Bounty is Uniqlo Men's Outfit Haul.
@@ -150,14 +152,15 @@ Validated on 2026-08-30:
 - `git diff --check` — passed.
 - Exact `qrcode` dependencies remain installed with zero reported vulnerabilities from the prior install.
 
-Focused Uniqlo verifier smoke verified:
+Focused permissive Uniqlo verifier smoke verified:
 
-1. Backend and mobile fixtures have identical Uniqlo briefs and Deliverables.
-2. A men's T-shirt transcript passes the `mens-tshirt` Relevance Deliverable through a mocked Gemini response.
-3. The previous generic men's-outfit transcript fails because it does not establish a T-shirt.
-4. `durationSeconds: 59` passes the strict under-1-minute Deliverable.
-5. `durationSeconds: 60` fails that Deliverable.
-6. The smoke asserted `gemini-2.5-flash` selection without making a live Gemini request.
+1. `tshirt`, `nice tee`, and `XYZ oversized T-shirt` pass the `mens-tshirt` Relevance Deliverable without Uniqlo, men's, fit, or styling language.
+2. A per-Deliverable pass at `0.8` confidence remains a pass even when a legacy mocked response includes top-level `relevant: false`; confidence is not a threshold.
+3. The previous generic outfit-only transcript still fails because it does not establish a T-shirt, and an empty transcript fails before Gemini.
+4. A passing T-shirt check with `durationSeconds: 59` passes the overall verifier.
+5. The same T-shirt check with `durationSeconds: 60` or unknown duration fails only the strict duration Deliverable.
+6. The smoke asserted `gemini-2.5-flash` selection and prompt criteria without making a live Gemini request.
+7. Malformed checks—including string pass values, missing evidence/checks, out-of-range confidence, and empty summaries—fail closed as Gemini processing errors.
 
 Focused Gemini-only configuration smoke verified:
 
@@ -197,7 +200,7 @@ Not yet validated:
 ### P1 — useful but not required
 
 - Picker-reported duration is trusted in the controlled demo; forged multipart metadata could bypass a production duration policy.
-- Men's T-shirt relevance is inferred from transcript/LLM text only; the Backend does not inspect video frames.
+- Men's T-shirt relevance is inferred from transcript/LLM text only; the Backend does not inspect video frames, so a visually shown T-shirt without a spoken transcript reference cannot pass the current check.
 - Add visible request errors and disable repeat taps on slower screens.
 - Add distinct fixture Creator display names if the Scoreboard should show different people; it is currently video-wise and filenames distinguish rows.
 - Add a simple reset control if repeated demos in one Backend process become cumbersome.
@@ -219,6 +222,13 @@ Not yet validated:
 6. Freeze the demo environment; do not resume production infrastructure work unless the demo requires it.
 
 ## Change log
+
+### 2026-08-30 — Permissive Deliverable-focused relevance
+
+- Made required per-Deliverable Gemini checks authoritative instead of allowing a duplicate top-level relevance flag to reject an otherwise passing Submission.
+- Allowed short non-empty transcripts and instructed Gemini to accept clear T-shirt/tshirt/tee wording without additional brand, gender, fit, or styling details; confidence remains display-only.
+- Preserved Gemini 2.5 Flash-only evaluation, empty-transcript failure, and strict under-one-minute duration behavior.
+- Passed Backend build, mobile typecheck/lint, and a no-network regression covering 80% confidence, short T-shirt mentions, outfit-only content, empty audio, duration boundaries, and fail-closed malformed Gemini output.
 
 ### 2026-08-30 — Men's T-shirt Uniqlo requirement
 
