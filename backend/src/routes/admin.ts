@@ -1,41 +1,11 @@
-import { NextFunction, Request, Response, Router } from 'express';
-import fs from 'fs';
-import multer from 'multer';
-import path from 'path';
+import { Request, Response, Router } from 'express';
 import { db, ReviewRound } from '../db/memoryDb';
 import { adminMiddleware, signToken } from '../middleware/auth';
 import { requireEnvironmentValue } from '../shared/config';
-import { mapSubmissionSummary } from '../shared/publicMappers';
 import { err, ErrorCode, ok } from '../shared/response';
 
 const router = Router();
 const DEMO_ADMIN_PIN = requireEnvironmentValue('DEMO_ADMIN_PIN');
-const UPLOADS_DIR = path.resolve(process.cwd(), process.env.UPLOADS_DIR ?? 'uploads');
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-const adminUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, callback) => callback(null, UPLOADS_DIR),
-    filename: (_req, file, callback) => callback(null, `staged-${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname) || '.mp4'}`),
-  }),
-  limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: (_req, file, callback) => callback(null, file.mimetype === 'video/mp4' && file.originalname.toLowerCase().endsWith('.mp4')),
-});
-
-function uploadAdminMp4(req: Request, res: Response, next: NextFunction): void {
-  adminUpload.single('video')(req, res, error => {
-    if (!error) { next(); return; }
-    const code = error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE'
-      ? ErrorCode.VIDEO_TOO_LARGE
-      : ErrorCode.INVALID_VIDEO_TYPE;
-    err(res, req, 400, code, code === ErrorCode.VIDEO_TOO_LARGE ? 'MP4 exceeds the 100 MB demo limit' : 'A valid MP4 file is required');
-  });
-}
-
-function deleteAdminUpload(file: Express.Multer.File | undefined): void {
-  if (!file) return;
-  try { fs.unlinkSync(file.path); } catch { console.warn('[admin] Could not remove rejected demo upload'); }
-}
 
 router.post('/auth/login', (req: Request, res: Response): void => {
   const { pin } = req.body ?? {};
@@ -48,69 +18,6 @@ router.post('/auth/login', (req: Request, res: Response): void => {
 });
 
 router.use(adminMiddleware);
-
-/**
- * POST /v1/admin/demo/submissions
- * Stages a real playable MP4 as an additional pre-approved demo Submission.
- */
-router.post('/demo/submissions', uploadAdminMp4, (req: Request, res: Response): void => {
-  const uploadedFile = req.file;
-  try {
-    const { bountyId, creatorId } = req.body ?? {};
-    if (!uploadedFile) {
-      err(res, req, 400, ErrorCode.UPLOAD_NOT_FOUND, 'Attach an MP4 file in the video multipart field');
-      return;
-    }
-    if (typeof bountyId !== 'string' || !bountyId) {
-      deleteAdminUpload(uploadedFile);
-      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'bountyId is required');
-      return;
-    }
-
-    const bounty = db.getBounty(bountyId);
-    if (!bounty) {
-      deleteAdminUpload(uploadedFile);
-      err(res, req, 404, ErrorCode.BOUNTY_NOT_FOUND, 'Bounty not found');
-      return;
-    }
-
-    let creator = typeof creatorId === 'string' ? db.getUser(creatorId) : db.getOrCreateDemoUser();
-    if (!creator) creator = db.getOrCreateDemoUser();
-    let acceptance = db.findAcceptance(creator.id, bountyId);
-    if (!acceptance) acceptance = db.createAcceptance(creator.id, bountyId, bounty.deadlineHours);
-
-    const submission = db.createSubmission({
-      bountyId,
-      creatorId: creator.id,
-      acceptanceId: acceptance.id,
-      storagePath: uploadedFile.path,
-      originalFilename: uploadedFile.originalname,
-      mimeType: uploadedFile.mimetype,
-      sizeBytes: uploadedFile.size,
-      durationSeconds: null,
-      status: 'AI_PASSED',
-      failureCode: null,
-      failureMessage: null,
-      transcript: `Pre-approved demo video for ${bounty.productName}.`,
-      aiSummary: 'Pre-approved additional video staged for the live demo.',
-      aiConfidence: 1,
-      deliverableChecks: bounty.deliverables.map(deliverable => ({
-        deliverableId: deliverable.id,
-        label: deliverable.label,
-        passed: true,
-        evidence: 'Pre-approved demo fixture',
-        confidence: 1,
-      })),
-      submittedAt: new Date().toISOString(),
-    });
-    db.updateAcceptance(acceptance.id, { status: 'SUBMITTED' });
-    ok(res, req, { submission: mapSubmissionSummary(submission) }, 201);
-  } catch (error) {
-    deleteAdminUpload(uploadedFile);
-    console.error('[admin] demo submission error:', error);
-    err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to stage demo video');
-  }
-});
 
 /**
  * POST /v1/admin/review-rounds

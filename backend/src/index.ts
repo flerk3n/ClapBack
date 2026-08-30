@@ -21,8 +21,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestIdMiddleware);
 
 const uploadsDir = path.resolve(process.cwd(), process.env.UPLOADS_DIR ?? 'uploads');
+const demoVideosDir = path.resolve(process.cwd(), process.env.DEMO_VIDEOS_DIR ?? 'demo-videos');
 const reviewerPage = path.resolve(process.cwd(), 'public/review.html');
 app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', express.static(demoVideosDir));
 app.get('/review/:token', (_req, res) => res.sendFile(reviewerPage));
 
 app.get('/health/live', (req, res) => ok(res, req, { status: 'alive' }));

@@ -525,12 +525,11 @@ The demo has one terminal payout state, `SIMULATED_PAID`. This is enough to show
    - creator swipes through fixed bounty cards;
    - creator accepts one bounty and uploads a known valid video;
    - app displays processing state;
-   - admin page displays passed and rejected submissions;
-   - developer uploads additional prepared videos;
-   - admin opens a review round and displays its QR code;
-   - reviewers scan, scroll, and rate five videos;
-   - admin ends the round;
-   - scoreboard appears;
+   - operator has placed two to four prepared MP4s in `backend/demo-videos/`;
+   - creator starts human review and the app displays its QR code;
+   - reviewers scan, scroll, and rate up to five videos;
+   - creator taps Stop reviewing;
+   - scoreboard appears in the app;
    - admin demonstrates one UGC buyout or multiple influencer payouts.
 2. Define four to six stable bounty fixtures with stable UUIDs.
 3. Make at least one prepared video pass and one prepared random/non-compliant video fail.

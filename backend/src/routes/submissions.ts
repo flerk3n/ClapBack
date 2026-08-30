@@ -319,6 +319,52 @@ async function mapReviewRoundResult(round: NonNullable<ReturnType<typeof db.getR
   };
 }
 
+function addDemoFolderVideos(submission: NonNullable<ReturnType<typeof db.getSubmission>>): void {
+  const demoVideosDir = path.resolve(process.cwd(), process.env.DEMO_VIDEOS_DIR ?? 'demo-videos');
+  if (!fs.existsSync(demoVideosDir)) return;
+  const bounty = db.getBounty(submission.bountyId);
+  if (!bounty) return;
+
+  const existingPaths = new Set(
+    db.getSubmissionsForBounty(submission.bountyId).map(item => path.resolve(item.storagePath)),
+  );
+  const files = fs.readdirSync(demoVideosDir, { withFileTypes: true })
+    .filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.mp4'))
+    .map(entry => entry.name)
+    .sort((left, right) => left.localeCompare(right))
+    .slice(0, 4);
+
+  for (const filename of files) {
+    const storagePath = path.join(demoVideosDir, filename);
+    if (existingPaths.has(storagePath)) continue;
+    const stats = fs.statSync(storagePath);
+    db.createSubmission({
+      bountyId: submission.bountyId,
+      creatorId: submission.creatorId,
+      acceptanceId: submission.acceptanceId,
+      storagePath,
+      originalFilename: filename,
+      mimeType: 'video/mp4',
+      sizeBytes: stats.size,
+      durationSeconds: null,
+      status: 'AI_PASSED',
+      failureCode: null,
+      failureMessage: null,
+      transcript: `Pre-approved demo folder video for ${bounty.productName}.`,
+      aiSummary: 'Pre-approved video loaded automatically from the demo folder.',
+      aiConfidence: 1,
+      deliverableChecks: bounty.deliverables.map(deliverable => ({
+        deliverableId: deliverable.id,
+        label: deliverable.label,
+        passed: true,
+        evidence: 'Pre-approved demo folder fixture',
+        confidence: 1,
+      })),
+      submittedAt: new Date().toISOString(),
+    });
+  }
+}
+
 router.post('/:submissionId/review-round', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const submission = getOwnedSubmission(req, res);
@@ -330,6 +376,7 @@ router.post('/:submissionId/review-round', authMiddleware, async (req: Request, 
 
     let round = db.findReviewRoundBySubmission(submission.id);
     if (!round) {
+      addDemoFolderVideos(submission);
       const candidates = db.getSubmissionsForBounty(submission.bountyId)
         .filter(item => item.status === 'AI_PASSED')
         .sort((left, right) => (left.submittedAt ?? left.createdAt).localeCompare(right.submittedAt ?? right.createdAt));

@@ -14,6 +14,7 @@ The current integration target is deliberately smaller than the durable architec
 - Expo calls the local Express API with demo Creator tokens.
 - `POST /v1/submissions` uploads one real MP4 as multipart form data and returns a queued Submission.
 - Mobile polls the canonical Submission statuses while Express runs direct ElevenLabs transcription and structured Deliverable verification in-process.
+- Up to four MP4s placed directly in `backend/demo-videos/` are treated as pre-approved fixtures and automatically join the real Creator video's Bounty when human review starts; no Bounty ID or admin upload call is required.
 - After `AI_PASSED`, Creator-scoped demo endpoints open/restore/close an in-memory Review Round and return a public `/review/:token` URL.
 - The same Express process serves local video playback, the vertical reviewer page, anonymous Ratings, and the frozen Scoreboard.
 
