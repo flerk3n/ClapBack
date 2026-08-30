@@ -21,6 +21,7 @@ type BountyCardProps = {
   bounty: Bounty;
   visual: BountyVisual;
   active?: boolean;
+  cardHeight?: number;
   onAccept: () => void;
   onSkip: () => void;
   onOpenDetails: () => void;
@@ -45,13 +46,14 @@ export function BountyCard({
   bounty,
   visual,
   active = true,
+  cardHeight: customCardHeight,
   onAccept,
   onSkip,
   onOpenDetails,
 }: BountyCardProps) {
   const [position] = useState(() => new Animated.ValueXY());
   const { height } = useWindowDimensions();
-  const cardHeight = Math.max(340, Math.min(540, height - 330));
+  const cardHeight = customCardHeight ?? Math.max(380, Math.min(520, height - 300));
 
   const completeSwipe = useCallback(
     (direction: 'left' | 'right') => {

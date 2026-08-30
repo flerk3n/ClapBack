@@ -1,7 +1,7 @@
 import { colors, formatClapScore, formatFollowers, radii, spacing } from '@clapback/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { Avatar } from '@/components/avatar';
@@ -43,7 +43,12 @@ export default function CreatorProfileScreen() {
           <MetricBlock value={String(creator.trustScore)} label="Trust Score" />
         </View>
         <View style={styles.section}>
-          <View style={styles.sectionHeader}><AppText variant="subheading">Your niches</AppText><AppText variant="caption" tone="coral">Edit</AppText></View>
+          <View style={styles.sectionHeader}>
+            <AppText variant="subheading">Your niches</AppText>
+            <Pressable onPress={() => router.push('/onboarding/niches')} hitSlop={10}>
+              <AppText variant="caption" tone="coral">Edit</AppText>
+            </Pressable>
+          </View>
           <View style={styles.niches}>
             {creator.allNiches ? (
               <View style={styles.niche}><AppText variant="label">All niches</AppText></View>
