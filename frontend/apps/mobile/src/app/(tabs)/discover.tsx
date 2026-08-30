@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { Avatar } from '@/components/avatar';
@@ -16,6 +17,7 @@ import { Screen } from '@/components/screen';
 import { useMockApp } from '@/state/mock-app-provider';
 
 export default function DiscoverScreen() {
+  const insets = useSafeAreaInsets();
   const { creator, bounties, acceptBounty, allNiches, selectedNicheIds, setCreatorNiches } = useMockApp();
   const [skippedIds, setSkippedIds] = useState<string[]>([]);
   const [details, setDetails] = useState<Bounty | null>(null);
@@ -248,7 +250,7 @@ export default function DiscoverScreen() {
         {details ? (
           <View style={styles.sheet}>
             <View style={styles.handle} />
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, spacing[4]) + spacing[4] }]}>
               <View style={styles.sheetTitleRow}>
                 <View style={styles.sheetTitleCopy}>
                   <AppText variant="eyebrow" tone="coral">{details.brandName} · {details.type}</AppText>

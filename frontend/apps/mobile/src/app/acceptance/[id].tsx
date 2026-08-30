@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { Screen } from '@/components/screen';
@@ -10,6 +11,7 @@ import { TopBar } from '@/components/top-bar';
 import { useMockApp } from '@/state/mock-app-provider';
 
 export default function AcceptanceScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getAcceptance, getBounty } = useMockApp();
   const acceptance = getAcceptance(id);
@@ -51,7 +53,7 @@ export default function AcceptanceScreen() {
 
         <View style={styles.tip}><Ionicons name="bulb-outline" size={21} color={colors.amber} /><AppText variant="body" tone="soft" style={styles.tipCopy}>Record vertically, keep the audio clear, and leave a clean beat at the beginning and end.</AppText></View>
       </ScrollView>
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}>
         <AppButton label="Upload now" icon="cloud-upload-outline" onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); router.push({ pathname: '/upload/[acceptanceId]', params: { acceptanceId: acceptance.id } }); }} />
         <AppButton label="View active task" variant="ghost" onPress={() => router.replace('/(tabs)/active')} />
       </View>

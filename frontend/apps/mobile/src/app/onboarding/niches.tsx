@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { Chip } from '@/components/chip';
@@ -12,6 +13,7 @@ import { TopBar } from '@/components/top-bar';
 import { useMockApp } from '@/state/mock-app-provider';
 
 export default function NicheSelectionScreen() {
+  const insets = useSafeAreaInsets();
   const { allNiches: initialAll, selectedNicheIds: initialIds, setCreatorNiches } = useMockApp();
   const [allNiches, setAllNiches] = useState(initialAll);
   const [selectedIds, setSelectedIds] = useState(initialIds);
@@ -62,7 +64,7 @@ export default function NicheSelectionScreen() {
           ))}
         </View>
       </ScrollView>
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
         <AppText variant="caption" tone="muted" style={styles.selectionCount}>
           {allNiches ? 'All niches selected' : `${selectedIds.length} selected`}
         </AppText>

@@ -13,7 +13,7 @@ import type { SelectedVideo } from '@/state/mock-app-provider';
 const ACCESS_TOKEN_KEY = 'clapback.access-token';
 const REFRESH_TOKEN_KEY = 'clapback.refresh-token';
 const DEMO_CREATOR_ID = 'ebf4b0b2-d96f-47d2-8f27-60139947f6b8';
-export const apiBaseUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3001').replace(/\/$/, '');
+export const apiBaseUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 const demoCreatorPin = process.env.EXPO_PUBLIC_DEMO_CREATOR_PIN || '1234';
 
 let accessToken: string | null = null;

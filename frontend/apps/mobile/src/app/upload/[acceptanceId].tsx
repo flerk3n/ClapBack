@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { Screen } from '@/components/screen';
@@ -33,6 +34,7 @@ function formatDuration(seconds: number | null) {
 }
 
 export default function UploadScreen() {
+  const insets = useSafeAreaInsets();
   const { acceptanceId } = useLocalSearchParams<{ acceptanceId: string }>();
   const { getAcceptance, getBounty, createSubmission } = useMockApp();
   const acceptance = getAcceptance(acceptanceId);
@@ -155,7 +157,7 @@ export default function UploadScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}>
         {uploading ? (
           <View style={styles.progressArea}>
             <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>

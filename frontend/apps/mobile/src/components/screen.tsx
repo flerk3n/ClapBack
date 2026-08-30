@@ -1,7 +1,7 @@
 import { colors, layout } from '@clapback/ui';
 import type { PropsWithChildren } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
-import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 
 type ScreenProps = PropsWithChildren<{
   padded?: boolean;
@@ -15,10 +15,19 @@ export function Screen({
   style,
   edges = ['top', 'bottom'],
 }: ScreenProps) {
+  const insets = useSafeAreaInsets();
+
+  const safeInsetsStyle: ViewStyle = {
+    paddingTop: edges.includes('top') ? insets.top : 0,
+    paddingBottom: edges.includes('bottom') ? insets.bottom : 0,
+    paddingLeft: edges.includes('left') ? insets.left : 0,
+    paddingRight: edges.includes('right') ? insets.right : 0,
+  };
+
   return (
-    <SafeAreaView edges={edges} style={styles.container}>
+    <View style={[styles.container, safeInsetsStyle]}>
       <View style={[styles.content, padded && styles.padded, style]}>{children}</View>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Image, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { Screen } from '@/components/screen';
@@ -35,6 +36,7 @@ function getStepIndex(status: SubmissionStatusValue) {
 const processingStatuses: SubmissionStatusValue[] = [SubmissionStatus.QUEUED, SubmissionStatus.TRANSCRIBING, SubmissionStatus.EVALUATING];
 
 export default function SubmissionStatusScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getSubmission, getBounty, getAcceptance, refreshSubmission } = useMockApp();
   const submission = getSubmission(id);
@@ -152,7 +154,7 @@ export default function SubmissionStatusScreen() {
         {error ? <View style={styles.errorCard}><Ionicons name="alert-circle-outline" size={19} color={colors.crimson} /><AppText variant="body" style={styles.errorText}>{error}</AppText></View> : null}
       </ScrollView>
 
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}>
         {isFailed && acceptance ? <AppButton label="Try another video" icon="refresh" onPress={() => router.replace({ pathname: '/upload/[acceptanceId]', params: { acceptanceId: acceptance.id } })} /> : <AppButton label="View Active" variant="secondary" onPress={() => router.replace('/(tabs)/active')} />}
       </View>
     </Screen>
