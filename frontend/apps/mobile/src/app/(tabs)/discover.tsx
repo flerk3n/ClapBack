@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
 import { Avatar } from '@/components/avatar';
@@ -19,6 +19,8 @@ export default function DiscoverScreen() {
   const [skippedIds, setSkippedIds] = useState<string[]>([]);
   const [details, setDetails] = useState<Bounty | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const { height } = useWindowDimensions();
+  const cardHeight = Math.max(380, Math.min(520, height - 310));
 
   const available = useMemo(
     () => bounties.filter((bounty) => !skippedIds.includes(bounty.id)),
@@ -78,13 +80,14 @@ export default function DiscoverScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.stackArea}>
+      <View style={[styles.stackArea, { height: cardHeight }]}>
         {nextBounty ? (
           <BountyCard
             key={nextBounty.id}
             bounty={nextBounty}
             visual={bountyVisuals[nextBounty.id]!}
             active={false}
+            cardHeight={cardHeight}
             onAccept={() => undefined}
             onSkip={() => undefined}
             onOpenDetails={() => undefined}
@@ -95,12 +98,13 @@ export default function DiscoverScreen() {
             key={topBounty.id}
             bounty={topBounty}
             visual={bountyVisuals[topBounty.id]!}
+            cardHeight={cardHeight}
             onAccept={() => handleAccept(topBounty)}
             onSkip={() => handleSkip(topBounty.id)}
             onOpenDetails={() => setDetails(topBounty)}
           />
         ) : (
-          <View style={styles.emptyCard}>
+          <View style={[styles.emptyCard, { minHeight: cardHeight }]}>
             <View style={styles.emptyIcon}><Ionicons name="checkmark" size={28} color={colors.eucalyptus} /></View>
             <AppText variant="heading">You’re all caught up.</AppText>
             <AppText variant="body" tone="soft" style={styles.center}>
@@ -255,14 +259,21 @@ const styles = StyleSheet.create({
   filterRow: { height: 28, flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[1] },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.eucalyptus },
   filterButton: { marginLeft: 'auto', width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  stackArea: { flex: 1, width: '100%', position: 'relative' },
-  actions: { height: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[5], paddingVertical: 2 },
-  actionButton: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', ...shadows.floating },
+  stackArea: { width: '100%', position: 'relative' },
+  actions: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[5],
+    paddingBottom: spacing[2],
+  },
+  actionButton: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', ...shadows.floating },
   skipButton: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   acceptButton: { backgroundColor: colors.coral },
   actionPressed: { transform: [{ scale: 0.94 }] },
   swipeHint: { width: 72, alignItems: 'center' },
-  emptyCard: { flex: 1, borderRadius: radii.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', padding: spacing[6], gap: spacing[2] },
+  emptyCard: { borderRadius: radii.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', padding: spacing[6], gap: spacing[2] },
   emptyIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.eucalyptusWash, alignItems: 'center', justifyContent: 'center' },
   center: { textAlign: 'center' },
   resetButton: { alignSelf: 'stretch', marginTop: spacing[2] },
