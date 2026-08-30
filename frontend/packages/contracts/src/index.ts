@@ -159,6 +159,15 @@ export const uploadDescriptorSchema = z.object({
   maxSizeBytes: z.number().int().positive(),
 });
 
+export const apiMetaSchema = z.object({
+  requestId: z.string().min(1),
+});
+
+export const successEnvelopeSchema = <Schema extends z.ZodType>(schema: Schema) => z.object({
+  data: schema,
+  meta: apiMetaSchema,
+});
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string(),
@@ -168,6 +177,46 @@ export const apiErrorSchema = z.object({
   }),
 });
 
+export const demoCreatorLoginRequestSchema = z.object({
+  pin: z.string().min(1),
+  creatorFixtureId: z.uuid(),
+});
+
+export const tokenPairSchema = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+});
+
+export const demoCreatorLoginResultSchema = tokenPairSchema.extend({
+  creator: creatorProfileSchema,
+});
+export const demoCreatorLoginResponseSchema = successEnvelopeSchema(demoCreatorLoginResultSchema);
+
+export const tokenRefreshRequestSchema = z.object({
+  refreshToken: z.string().min(1),
+});
+export const tokenRefreshResultSchema = tokenPairSchema;
+export const tokenRefreshResponseSchema = successEnvelopeSchema(tokenRefreshResultSchema);
+
+export const adminLoginRequestSchema = z.object({
+  pin: z.string().min(1),
+});
+export const adminLoginResultSchema = z.object({
+  accessToken: z.string().min(1),
+});
+export const adminLoginResponseSchema = successEnvelopeSchema(adminLoginResultSchema);
+
+export const idempotencyKeySchema = z.string().trim().min(1).max(200);
+
+export const localSubmissionCreateFieldsSchema = z.object({
+  acceptanceId: z.uuid(),
+});
+export const submissionCreateRequestSchema = localSubmissionCreateFieldsSchema;
+export const submissionCreateResultSchema = z.object({
+  submission: submissionSummarySchema,
+});
+export const submissionCreateResponseSchema = successEnvelopeSchema(submissionCreateResultSchema);
+
 export type Niche = z.infer<typeof nicheSchema>;
 export type CreatorProfile = z.infer<typeof creatorProfileSchema>;
 export type Deliverable = z.infer<typeof deliverableSchema>;
@@ -176,9 +225,18 @@ export type DeliverableCheck = z.infer<typeof deliverableCheckSchema>;
 export type SubmissionSummary = z.infer<typeof submissionSummarySchema>;
 export type Acceptance = z.infer<typeof acceptanceSchema>;
 export type UploadDescriptor = z.infer<typeof uploadDescriptorSchema>;
+export type ApiMeta = z.infer<typeof apiMetaSchema>;
+export type DemoCreatorLoginRequest = z.infer<typeof demoCreatorLoginRequestSchema>;
+export type DemoCreatorLoginResult = z.infer<typeof demoCreatorLoginResultSchema>;
+export type TokenRefreshRequest = z.infer<typeof tokenRefreshRequestSchema>;
+export type TokenRefreshResult = z.infer<typeof tokenRefreshResultSchema>;
+export type AdminLoginRequest = z.infer<typeof adminLoginRequestSchema>;
+export type AdminLoginResult = z.infer<typeof adminLoginResultSchema>;
+export type SubmissionCreateRequest = z.infer<typeof submissionCreateRequestSchema>;
+export type SubmissionCreateResult = z.infer<typeof submissionCreateResultSchema>;
 export type SubmissionStatusValue = (typeof SubmissionStatus)[keyof typeof SubmissionStatus];
 
-export type SuccessEnvelope<T> = { data: T };
+export type SuccessEnvelope<T> = { data: T; meta: ApiMeta };
 export type ApiErrorEnvelope = z.infer<typeof apiErrorSchema>;
 
 export const creatorSubmissionLabels: Record<SubmissionStatusValue, string> = {

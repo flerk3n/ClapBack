@@ -16,8 +16,10 @@ export const niches: Niche[] = [
   { id: 7, slug: 'lifestyle', label: 'Lifestyle' },
 ];
 
+export const DEMO_CREATOR_FIXTURE_ID = 'ebf4b0b2-d96f-47d2-8f27-60139947f6b8';
+
 export const demoCreator: CreatorProfile = creatorProfileSchema.parse({
-  userId: 'ebf4b0b2-d96f-47d2-8f27-60139947f6b8',
+  userId: DEMO_CREATOR_FIXTURE_ID,
   displayName: 'Maya Chen',
   avatarUrl: null,
   instagramUsername: 'mayamakes',

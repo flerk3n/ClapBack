@@ -125,8 +125,8 @@ export async function verifyDeliverablesStructured(
       const result = await model.generateContent(prompt);
       const cleaned = result.response.text().replace(/```json|```/g, '').trim();
       llmResponse = JSON.parse(cleaned);
-    } catch (err) {
-      console.warn('[llm] Gemini structured call failed, trying OpenAI:', err);
+    } catch {
+      console.warn('[llm] Gemini structured call failed; trying OpenAI');
     }
   }
 
@@ -142,8 +142,8 @@ export async function verifyDeliverablesStructured(
       });
       const content = chat.choices[0]?.message?.content ?? '{}';
       llmResponse = JSON.parse(content);
-    } catch (err) {
-      console.warn('[llm] OpenAI structured call failed:', err);
+    } catch {
+      console.warn('[llm] OpenAI structured call failed');
     }
   }
 

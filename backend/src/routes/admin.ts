@@ -1,8 +1,24 @@
 import { Router, Request, Response } from 'express';
 import { db, ReviewRound } from '../db/memoryDb';
+import { adminMiddleware, signToken } from '../middleware/auth';
+import { requireEnvironmentValue } from '../shared/config';
+import { mapSubmissionSummary } from '../shared/publicMappers';
 import { ok, err, ErrorCode } from '../shared/response';
 
 const router = Router();
+const DEMO_ADMIN_PIN = requireEnvironmentValue('DEMO_ADMIN_PIN');
+
+router.post('/auth/login', (req: Request, res: Response): void => {
+  const { pin } = req.body ?? {};
+  if (typeof pin !== 'string' || pin !== DEMO_ADMIN_PIN) {
+    err(res, req, 401, ErrorCode.AUTH_REQUIRED, 'Invalid admin PIN');
+    return;
+  }
+  const accessToken = signToken({ userId: 'admin', role: 'DEMO_ADMIN', tokenType: 'access' }, '24h');
+  ok(res, req, { accessToken });
+});
+
+router.use(adminMiddleware);
 
 /**
  * POST /v1/admin/demo/submissions
@@ -23,9 +39,9 @@ router.post('/demo/submissions', (req: Request, res: Response): void => {
       return;
     }
 
-    let creator = creatorId ? db.getUser(creatorId) : db.getOrCreateDemoUser(0);
+    let creator = creatorId ? db.getUser(creatorId) : db.getOrCreateDemoUser();
     if (!creator) {
-      creator = db.getOrCreateDemoUser(0);
+      creator = db.getOrCreateDemoUser();
     }
 
     let acceptance = db.findAcceptance(creator.id, bountyId);
@@ -63,14 +79,7 @@ router.post('/demo/submissions', (req: Request, res: Response): void => {
     }
 
     ok(res, req, {
-      submission: sub,
-      upload: {
-        protocol: 'TUS',
-        endpoint: `/v1/submissions/${sub.id}/upload-complete`,
-        storagePath: sub.storagePath,
-        expiresAt: new Date(Date.now() + 3600000).toISOString(),
-        maxSizeBytes: 100 * 1024 * 1024,
-      },
+      submission: mapSubmissionSummary(sub),
     }, 201);
   } catch (e) {
     console.error('[admin] demo submission error:', e);

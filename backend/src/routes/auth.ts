@@ -1,139 +1,108 @@
-import { Router, Request, Response } from 'express';
-import { db } from '../db/memoryDb';
-import { signToken, authMiddleware } from '../middleware/auth';
-import { ok, err, ErrorCode } from '../shared/response';
+import { Request, Response, Router } from 'express';
+import { db, DEMO_CREATOR_FIXTURE_ID } from '../db/memoryDb';
+import { authMiddleware, signToken, verifyRefreshToken } from '../middleware/auth';
+import { requireEnvironmentValue } from '../shared/config';
+import { mapCreatorProfile } from '../shared/publicMappers';
+import { err, ErrorCode, ok } from '../shared/response';
 
 const router = Router();
+const DEMO_CREATOR_PIN = requireEnvironmentValue('DEMO_CREATOR_PIN');
 
-const DEMO_ADMIN_PIN = process.env.DEMO_ADMIN_PIN ?? '1234';
+function issueTokenPair(userId: string, role: 'CREATOR' | 'DEMO_ADMIN') {
+  return {
+    accessToken: signToken({ userId, role, tokenType: 'access' }, '1h'),
+    refreshToken: signToken({ userId, role, tokenType: 'refresh' }, '7d'),
+  };
+}
 
-/**
- * POST /v1/demo/auth/login
- * Demo creator login. Pick one of 3 pre-seeded profiles by PIN + profileIndex.
- * profileIndex: 0 = Micro (8.2k), 1 = Mid (28.5k), 2 = Macro (92k)
- */
-router.post('/login', (req: Request, res: Response): void => {
+router.post('/demo/auth/login', (req: Request, res: Response): void => {
   try {
-    const { profileIndex = 0 } = req.body ?? {};
-    const user = db.getOrCreateDemoUser(Number(profileIndex));
-    const accessToken = signToken({ userId: user.id, role: 'CREATOR' });
-    ok(res, req, {
-      accessToken,
-      creator: mapCreatorProfile(user),
-    });
-  } catch (e) {
-    console.error('[auth] demo login error:', e);
-    err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Login failed');
-  }
-});
-
-/**
- * POST /v1/admin/auth/login
- * Demo admin login via PIN.
- */
-router.post('/admin-login', (req: Request, res: Response): void => {
-  try {
-    const { pin } = req.body ?? {};
-    if (pin !== DEMO_ADMIN_PIN) {
-      err(res, req, 401, ErrorCode.AUTH_REQUIRED, 'Invalid admin PIN');
+    const { pin, creatorFixtureId } = req.body ?? {};
+    if (typeof pin !== 'string' || typeof creatorFixtureId !== 'string') {
+      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'pin and creatorFixtureId are required');
       return;
     }
-    const accessToken = signToken({ userId: 'admin', role: 'DEMO_ADMIN' }, '24h');
-    ok(res, req, { accessToken });
-  } catch (e) {
-    console.error('[auth] admin login error:', e);
+    if (pin !== DEMO_CREATOR_PIN) {
+      err(res, req, 401, ErrorCode.AUTH_REQUIRED, 'Invalid Creator PIN');
+      return;
+    }
+    if (creatorFixtureId !== DEMO_CREATOR_FIXTURE_ID) {
+      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'Unknown Creator fixture');
+      return;
+    }
+
+    const user = db.getOrCreateDemoUser();
+    ok(res, req, {
+      ...issueTokenPair(user.id, 'CREATOR'),
+      creator: mapCreatorProfile(user),
+    });
+  } catch (error) {
+    console.error('[auth] demo login failed');
     err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Login failed');
   }
 });
 
-/**
- * GET /v1/me
- * Returns the authenticated creator's full profile.
- */
-router.get('/me', authMiddleware, (req: Request, res: Response): void => {
+router.post('/auth/refresh', (req: Request, res: Response): void => {
   try {
-    const { userId } = (req as any).user;
-    const user = db.getUser(userId);
-    if (!user) { err(res, req, 404, ErrorCode.NOT_FOUND, 'User not found'); return; }
-    ok(res, req, mapCreatorProfile(user));
-  } catch (e) {
-    console.error('[auth] GET /me error:', e);
-    err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to fetch profile');
+    const { refreshToken } = req.body ?? {};
+    if (typeof refreshToken !== 'string' || refreshToken.length === 0) {
+      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'refreshToken is required');
+      return;
+    }
+
+    // Local prototype only: refresh tokens are signed and verified but are not persisted or revocable.
+    const payload = verifyRefreshToken(refreshToken);
+    ok(res, req, issueTokenPair(payload.userId, payload.role));
+  } catch (error) {
+    if ((error as { name?: string })?.name === 'TokenExpiredError') {
+      err(res, req, 401, ErrorCode.AUTH_EXPIRED, 'Refresh token expired');
+    } else {
+      err(res, req, 401, ErrorCode.AUTH_REQUIRED, 'Invalid refresh token');
+    }
   }
 });
 
-/**
- * PUT /v1/me/niches
- * Creator sets their niche preferences.
- * Body: { allNiches: boolean, nicheIds?: number[] }
- */
+router.get('/me', authMiddleware, (req: Request, res: Response): void => {
+  const { userId } = (req as any).user;
+  const user = db.getUser(userId);
+  if (!user) {
+    err(res, req, 404, ErrorCode.NOT_FOUND, 'User not found');
+    return;
+  }
+  ok(res, req, mapCreatorProfile(user));
+});
+
 router.put('/me/niches', authMiddleware, (req: Request, res: Response): void => {
   try {
     const { userId } = (req as any).user;
     const { allNiches, nicheIds = [] } = req.body ?? {};
-
-    if (typeof allNiches !== 'boolean') {
-      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'allNiches must be a boolean');
+    if (typeof allNiches !== 'boolean' || !Array.isArray(nicheIds)) {
+      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'allNiches and nicheIds are invalid');
       return;
     }
-    if (allNiches && nicheIds.length > 0) {
-      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'allNiches=true must not include individual nicheIds');
+    if ((allNiches && nicheIds.length > 0) || (!allNiches && nicheIds.length === 0)) {
+      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'Select individual niches or set allNiches=true');
       return;
     }
-    if (!allNiches && nicheIds.length === 0) {
-      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'Must select at least one niche or set allNiches=true');
+    const validIds = db.getNiches().map(niche => niche.id);
+    if (nicheIds.some((id: unknown) => !Number.isInteger(id) || !validIds.includes(id as number))) {
+      err(res, req, 400, ErrorCode.VALIDATION_ERROR, 'One or more niche IDs are invalid');
       return;
     }
-
-    const validNiches = db.getNiches();
-    const validIds = validNiches.map(n => n.id);
-    const invalid = nicheIds.filter((id: number) => !validIds.includes(id));
-    if (invalid.length > 0) {
-      err(res, req, 400, ErrorCode.VALIDATION_ERROR, `Invalid niche IDs: ${invalid.join(', ')}`);
-      return;
-    }
-
     const user = db.updateUser(userId, { allNiches, nicheIds });
-    if (!user) { err(res, req, 404, ErrorCode.NOT_FOUND, 'User not found'); return; }
+    if (!user) {
+      err(res, req, 404, ErrorCode.NOT_FOUND, 'User not found');
+      return;
+    }
     ok(res, req, mapCreatorProfile(user));
-  } catch (e) {
-    console.error('[auth] PUT /me/niches error:', e);
+  } catch (error) {
+    console.error('[auth] niche update failed');
     err(res, req, 500, ErrorCode.INTERNAL_ERROR, 'Failed to update niches');
   }
 });
 
-/**
- * GET /v1/niches
- * Returns the list of available niches.
- */
-router.get('/niches', (_req: Request, res: Response): void => {
-  ok(res, _req, db.getNiches());
+router.get('/niches', (req: Request, res: Response): void => {
+  ok(res, req, db.getNiches());
 });
-
-// ─── Mapper ───────────────────────────────────────────────────────────────────
-
-function mapCreatorProfile(user: ReturnType<typeof db.getUser>) {
-  if (!user) return null;
-  const allNiches = db.getNiches();
-  const userNiches = user.allNiches
-    ? allNiches
-    : allNiches.filter(n => user.nicheIds.includes(n.id));
-  return {
-    userId: user.id,
-    displayName: user.displayName,
-    avatarUrl: user.avatarUrl,
-    instagramUsername: user.instagramUsername,
-    instagramAccountType: user.instagramAccountType,
-    followersCount: user.followersCount,
-    followsCount: user.followsCount,
-    mediaCount: user.mediaCount,
-    clapScore: user.clapScore,
-    trustScore: user.trustScore,
-    influencerEligible: user.influencerEligible,
-    allNiches: user.allNiches,
-    niches: userNiches,
-    clapCoinsBalance: user.clapCoinsBalance,
-  };
-}
 
 export default router;

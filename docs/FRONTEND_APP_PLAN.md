@@ -1,20 +1,20 @@
-# Developer A Plan — Frontend/App
+# Client Plan
 
-## 1. Role and ownership
+## 1. Layer responsibility
 
-Developer A owns every user-facing client:
+The Client layer contains every user-facing client:
 
-- `apps/mobile` — Expo/React Native Android creator app.
-- `apps/web` — React/Vite public reviewer page and demo-admin page.
-- frontend-only UI components, navigation, animations, local state, query caching, secure client token storage, upload progress, video playback, and QR rendering.
+- `apps/mobile` — Expo/React Native Android Creator app.
+- `apps/web` — React/Vite Reviewer and Demo Admin web app.
+- Client-only UI components, navigation, animations, local state, query caching, secure client token storage, upload progress, video playback, and QR rendering.
 - visual assets for fixed Bounty cards.
 - contract-valid mock handlers used before real endpoints are ready.
 
-Developer A must follow [`INTEGRATION_CONTRACT.md`](./INTEGRATION_CONTRACT.md). Developer A does **not** own database tables, workflow transitions, Meta secret exchange, ClapScore calculation, AI decisions, scoreboard calculation, or payout amounts.
+The Client layer follows [`INTEGRATION_CONTRACT.md`](./INTEGRATION_CONTRACT.md). It does **not** implement database tables, workflow transitions, Meta secret exchange, ClapScore calculation, AI decisions, Scoreboard calculation, or Payout amounts.
 
 ## 2. File boundary
 
-Developer A may edit:
+Client-layer work may edit:
 
 ```text
 apps/mobile/**
@@ -25,7 +25,7 @@ packages/demo-data/**          only for agreed visual/fixture updates
 docs/FRONTEND_APP_PLAN.md
 ```
 
-Developer A should not edit:
+Client-layer work does not edit:
 
 ```text
 services/api/**
@@ -35,7 +35,7 @@ backend deployment configuration
 provider webhook or AI worker code
 ```
 
-This boundary avoids merge conflicts and prevents business logic from being duplicated in a client.
+This boundary prevents business logic from being duplicated in a Client.
 
 ## 3. Frontend technology choices
 
@@ -115,7 +115,7 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 
 ## 6. Phase-wise frontend plan
 
-## Frontend Phase A0 — Contract consumption and mock foundation
+## Client Phase A0 — Contract consumption and mock foundation
 
 **Goal:** let mobile and web development start against payloads that the real backend will honor.
 
@@ -135,11 +135,11 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 7. Add a public runtime configuration value for API base URL and demo-mode visibility.
 8. Do not place provider keys or a Supabase service key in frontend environment files.
 
-**Backend dependency:** published contracts and fixture IDs.
+**Prerequisite:** published contracts and fixture IDs.
 
-**Frontend output:** mobile and web can render all planned states without an active API.
+**Next-gate input:** mobile and web can render all planned states without an active API.
 
-## Frontend Phase A1 — Shared UI language and visual system
+## Client Phase A1 — Shared UI language and visual system
 
 **Goal:** make mobile, reviewer, and admin surfaces feel like one demo.
 
@@ -156,11 +156,11 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 6. Build reusable brand/Bounty visual components without embedding acceptance logic.
 7. Prepare local brand/product images whose fixture keys match `packages/demo-data`.
 
-**Backend dependency:** none beyond shared enums.
+**Prerequisite:** none beyond shared enums.
 
-**Frontend output:** every server state has a consistent visual representation.
+**Next-gate input:** every server state has a consistent visual representation.
 
-## Frontend Phase A2 — API client, token handling, and navigation guards
+## Client Phase A2 — API client, token handling, and navigation guards
 
 **Goal:** establish reliable client/server communication once endpoints are available.
 
@@ -180,11 +180,11 @@ Do not put API field conversion inside visual components. Parse the envelope onc
    - invalid review token -> invalid/closed review page.
 10. Include request IDs in admin-facing error details.
 
-**Backend dependency:** authentication, refresh, and standard error envelope.
+**Prerequisite:** authentication, refresh, and standard error envelope.
 
-**Frontend output:** all clients use one predictable auth/error policy.
+**Next-gate input:** all clients use one predictable auth/error policy.
 
-## Frontend Phase A3 — Mobile Meta OAuth and creator onboarding
+## Client Phase A3 — Mobile Meta OAuth and creator onboarding
 
 **Goal:** take a Creator from welcome to a confirmed Creator Profile.
 
@@ -208,11 +208,11 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 12. Add logout and session restoration.
 13. Verify Android back navigation cannot launch two OAuth flows.
 
-**Backend dependency:** Meta start/callback, exchange, demo login, and `/v1/me`.
+**Prerequisite:** Meta start/callback, exchange, demo login, and `/v1/me`.
 
-**Frontend output:** the prepared Instagram account and fallback Creator reach profile confirmation.
+**Next-gate input:** the prepared Instagram account and fallback Creator reach profile confirmation.
 
-## Frontend Phase A4 — Niche selection
+## Client Phase A4 — Niche selection
 
 **Goal:** persist one or more Niches or All niches without ambiguous data.
 
@@ -226,11 +226,11 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 8. Show validation and retry behavior for network failure.
 9. Route successful onboarding to Bounty discovery.
 
-**Backend dependency:** `PUT /v1/me/niches`.
+**Prerequisite:** `PUT /v1/me/niches`.
 
-**Frontend output:** frontend and backend agree on niche state without an `all` pseudo-ID.
+**Next-gate input:** frontend and backend agree on niche state without an `all` pseudo-ID.
 
-## Frontend Phase A5 — Bounty swipe discovery and Acceptance
+## Client Phase A5 — Bounty swipe discovery and Acceptance
 
 **Goal:** implement the Creator's primary product interaction.
 
@@ -255,11 +255,11 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 12. Add Active tab backed by `/v1/acceptances`.
 13. Ensure card animation rollback if acceptance fails.
 
-**Backend dependency:** Bounty list, acceptance creation, acceptance list.
+**Prerequisite:** Bounty list, acceptance creation, acceptance list.
 
-**Frontend output:** Creator reaches an active Acceptance exactly once.
+**Next-gate input:** Creator reaches an active Acceptance exactly once.
 
-## Frontend Phase A6 — Mobile video selection, preview, and TUS upload
+## Client Phase A6 — Mobile video selection, preview, and TUS upload
 
 **Goal:** upload a real Creator video without inventing server paths or states.
 
@@ -282,13 +282,13 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 13. On upload failure, resume through TUS if possible; otherwise request a backend-authorized retry.
 14. Never mark a Submission queued/passed locally.
 
-**Backend dependency:** Submission creation, signed TUS descriptor, upload-complete.
+**Prerequisite:** Submission creation, signed TUS descriptor, upload-complete.
 
-**Frontend output:** selected MP4 reaches private Storage and backend processing.
+**Next-gate input:** selected MP4 reaches private Storage and backend processing.
 
 **Transcription boundary:** mobile and web upload the accepted original MP4 unchanged. Frontend code must not extract audio, transcode media, install FFmpeg, or send a derivative MP3. The Backend passes a short-lived signed URL for the private video directly to ElevenLabs. The later label **Checking audio** describes speech-to-text analysis; it does not imply a client-side or server-side audio-extraction step.
 
-## Frontend Phase A7 — Submission processing and retry experience
+## Client Phase A7 — Submission processing and retry experience
 
 **Goal:** make asynchronous AI processing understandable.
 
@@ -310,11 +310,11 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 8. Restore active status after app restart from Acceptance data.
 9. Add pull-to-refresh as a manual fallback.
 
-**Backend dependency:** Submission read and retry behavior.
+**Prerequisite:** Submission read and retry behavior.
 
-**Frontend output:** Creator can wait, understand pass/fail, and replace a failed Submission.
+**Next-gate input:** Creator can wait, understand pass/fail, and replace a failed Submission.
 
-## Frontend Phase A8 — Public vertical reviewer web page
+## Client Phase A8 — Public vertical reviewer web page
 
 **Goal:** allow QR visitors to rate five videos with no signup.
 
@@ -336,11 +336,11 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 16. On closed round, disable Rating and fetch frozen Scoreboard Entries.
 17. Handle invalid token, empty feed, closed round, and video playback failure.
 
-**Backend dependency:** Reviewer Session, feed, Rating, progress, scoreboard endpoints.
+**Prerequisite:** Reviewer Session, feed, Rating, progress, scoreboard endpoints.
 
-**Frontend output:** a separate phone can scan QR, scroll videos, and persist Ratings.
+**Next-gate input:** a separate phone can scan QR, scroll videos, and persist Ratings.
 
-## Frontend Phase A9 — Demo-admin web page and developer uploader
+## Client Phase A9 — Demo-admin web page and developer uploader
 
 **Goal:** operate the entire demonstration without database access.
 
@@ -364,11 +364,11 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 12. Add guarded reset UI requiring exact confirmation text.
 13. Keep any emergency fixture shortcut clearly marked and hidden outside demo mode.
 
-**Backend dependency:** all admin endpoints and upload descriptor.
+**Prerequisite:** all admin endpoints and upload descriptor.
 
-**Frontend output:** one operator can stage, run, close, and reset the demo.
+**Next-gate input:** one operator can stage, run, close, and reset the demo.
 
-## Frontend Phase A10 — Scoreboard and simulated Payout UI
+## Client Phase A10 — Scoreboard and simulated Payout UI
 
 **Goal:** demonstrate both payout models without pretending real money moved.
 
@@ -389,11 +389,11 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 7. Label all outcomes **Simulated paid**.
 8. Add simple Payout ledger panel to prove persistence.
 
-**Backend dependency:** closed Scoreboard and payout endpoints.
+**Prerequisite:** closed Scoreboard and payout endpoints.
 
-**Frontend output:** UGC single buyout and Influencer multi-recipient Payouts are visibly distinct.
+**Next-gate input:** UGC single buyout and Influencer multi-recipient Payouts are visibly distinct.
 
-## Frontend Phase A11 — Integration hardening and demo validation
+## Client Phase A11 — Integration hardening and demo validation
 
 **Goal:** eliminate client-side causes of integration failure.
 
@@ -413,13 +413,13 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 14. Verify no frontend bundle contains provider or service-role secrets.
 15. Run the complete presentation path against the deployed Backend.
 
-**Backend dependency:** complete deployed API and seeded environment.
+**Prerequisite:** complete deployed API and seeded environment.
 
-**Frontend output:** production-like demo clients connected to one canonical backend contract.
+**Next-gate input:** production-like demo clients connected to one canonical backend contract.
 
-## 7. Frontend endpoint readiness board
+## 7. Client endpoint prerequisite board
 
-Developer A can track backend handoffs using this order:
+Sequential Client work consumes Trusted Platform endpoint groups in this order:
 
 | Feature | Required endpoint group | Can build with mocks first? |
 |---|---|---|
@@ -435,9 +435,9 @@ Developer A can track backend handoffs using this order:
 | Scoreboard | review/admin results | yes |
 | Payouts | UGC/Influencer payout endpoints | yes |
 
-## 8. Frontend acceptance checklist
+## 8. Client acceptance checklist
 
-Developer A's work is complete when:
+Client-layer work is complete when:
 
 - Android Creator can authenticate or use demo fallback.
 - Creator Profile metrics and ClapScore display exactly as returned.

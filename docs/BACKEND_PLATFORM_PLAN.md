@@ -1,23 +1,23 @@
-# Developer B Plan — Backend/Platform
+# Trusted Platform Plan
 
-## 1. Role and ownership
+## 1. Layer responsibility
 
-Developer B owns the trusted platform layer:
+The Trusted Platform layer contains the authoritative platform capabilities:
 
 - `services/api` — Fastify REST API, authentication, authorization, response envelopes, and job poller.
 - `supabase` — PostgreSQL schema, migrations, seed data, private Storage bucket, and policies.
-- backend side of Meta OAuth and Instagram metrics ingestion.
+- server side of Meta OAuth and Instagram metrics ingestion.
 - signed upload and playback access.
 - ElevenLabs transcription and structured LLM Deliverable evaluation.
 - Submission state transitions.
 - anonymous Reviewer Sessions, Rating persistence, Review Round closure, Scoreboard calculation, and simulated Payout ledger.
-- backend deployment configuration and secrets.
+- Trusted Platform deployment configuration and secrets.
 
-Developer B must implement [`INTEGRATION_CONTRACT.md`](./INTEGRATION_CONTRACT.md). Developer B does **not** own Expo screens, React pages, swipe behavior, video-player UI, local client token storage, or visual loading/error states.
+The Trusted Platform layer follows [`INTEGRATION_CONTRACT.md`](./INTEGRATION_CONTRACT.md). It does **not** implement Expo screens, React pages, swipe behavior, video-player UI, local Client token storage, or visual loading/error states.
 
 ## 2. File boundary
 
-Developer B may edit:
+Trusted Platform work may edit:
 
 ```text
 services/api/**
@@ -29,7 +29,7 @@ backend deployment config
 docs/BACKEND_PLATFORM_PLAN.md
 ```
 
-Developer B should not edit:
+Trusted Platform work does not edit:
 
 ```text
 apps/mobile/**
@@ -111,9 +111,9 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
 
 ## 6. Phase-wise backend plan
 
-## Backend Phase B0 — Contracts, server skeleton, and runtime configuration
+## Trusted Platform Phase B0 — Contracts, server skeleton, and runtime configuration
 
-**Goal:** provide a stable backend shape that Developer A can consume immediately.
+**Goal:** provide a stable Trusted Platform shape that the Client layer can consume at the appropriate sequential gate.
 
 1. Configure strict TypeScript and workspace imports.
 2. Implement the canonical enums, request schemas, response schemas, and endpoints from `packages/contracts`.
@@ -132,14 +132,14 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
 6. Add request IDs, CORS allowlist, secure headers, payload limits, and Pino redaction.
 7. Implement `/health/live` and `/health/ready` without exposing secrets.
 8. Implement centralized envelope/error conversion.
-9. Publish fixture-valid success/error examples for Developer A.
+9. Publish fixture-valid success/error examples for the Client layer.
 10. Add route registration by domain.
 
-**Frontend handoff:** base URL, contracts package, envelope examples, and current endpoint readiness.
+**Next-gate input for Client layer:** base URL, contracts package, envelope examples, and current endpoint readiness.
 
-**Backend output:** API starts with predictable validation, logging, and errors.
+**Next-gate input:** API starts with predictable validation, logging, and errors.
 
-## Backend Phase B1 — PostgreSQL schema, private Storage, and fixed fixtures
+## Trusted Platform Phase B1 — PostgreSQL schema, private Storage, and fixed fixtures
 
 **Goal:** create the authoritative state model and stable demo records.
 
@@ -173,11 +173,11 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
 11. Implement guarded demo reset affecting only demo transactional rows.
 12. Ensure migration and seed are repeatable on a clean project.
 
-**Frontend handoff:** stable fixture IDs, Bounty assets/data, configured video constraints.
+**Next-gate input for Client layer:** stable fixture IDs, Bounty assets/data, configured video constraints.
 
-**Backend output:** authoritative database and private media store.
+**Next-gate input:** authoritative database and private media store.
 
-## Backend Phase B2 — Clapback sessions, roles, and demo authentication
+## Trusted Platform Phase B2 — Clapback sessions, roles, and demo authentication
 
 **Goal:** secure Creator/Admin endpoints independently of Meta provider tokens.
 
@@ -194,11 +194,11 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
 11. Ensure Creator and Demo Admin tokens cannot cross roles.
 12. Ensure logs never contain tokens or PIN values.
 
-**Frontend handoff:** auth/refresh behavior and safe demo credentials through a non-repository channel.
+**Next-gate input for Client layer:** auth/refresh behavior and safe demo credentials through a non-repository channel.
 
-**Backend output:** both frontend clients can authenticate against stable app sessions.
+**Next-gate input:** both frontend clients can authenticate against stable app sessions.
 
-## Backend Phase B3 — Meta OAuth, creator metrics, and eligibility
+## Trusted Platform Phase B3 — Meta OAuth, creator metrics, and eligibility
 
 **Goal:** convert one approved Instagram professional account into a canonical Creator Profile.
 
@@ -229,11 +229,11 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
 14. Map unsupported account, unavailable metrics, cancellation, invalid state, and provider failure to canonical errors.
 15. Implement `GET /v1/me` with a public mapper that excludes Instagram immutable ID/provider token.
 
-**Frontend handoff:** exact callback URI registration, account requirements, and tested profile response.
+**Next-gate input for Client layer:** exact callback URI registration, account requirements, and tested profile response.
 
-**Backend output:** prepared Meta account signs in and produces expected eligibility/ClapScore.
+**Next-gate input:** prepared Meta account signs in and produces expected eligibility/ClapScore.
 
-## Backend Phase B4 — Niches, Bounties, and Acceptance domain
+## Trusted Platform Phase B4 — Niches, Bounties, and Acceptance domain
 
 **Goal:** provide fixed discovery data and safe right-swipe behavior.
 
@@ -254,11 +254,11 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
 13. Implement `GET /v1/acceptances` with latest Submission summary.
 14. Never persist left swipes for the base demo.
 
-**Frontend handoff:** `/me/niches`, Bounty list, Acceptance create/list plus all expected error examples.
+**Next-gate input for Client layer:** `/me/niches`, Bounty list, Acceptance create/list plus all expected error examples.
 
-**Backend output:** discovery and acceptance behavior is deterministic and idempotent.
+**Next-gate input:** discovery and acceptance behavior is deterministic and idempotent.
 
-## Backend Phase B5 — Submission creation and signed TUS upload
+## Trusted Platform Phase B5 — Submission creation and signed TUS upload
 
 **Goal:** authorize private video upload while keeping clients out of Storage internals.
 
@@ -286,11 +286,11 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
 14. Remove abandoned objects only through guarded cleanup/reset logic.
 15. Prove the same Upload Descriptor works from Android and browser clients.
 
-**Frontend handoff:** tested signed TUS descriptor, size/type limits, and Submission status examples.
+**Next-gate input for Client layer:** tested signed TUS descriptor, size/type limits, and Submission status examples.
 
-**Backend output:** both upload clients can place valid private video and queue one processing job.
+**Next-gate input:** both upload clients can place valid private video and queue one processing job.
 
-## Backend Phase B6 — Persistent jobs and direct-video ElevenLabs transcription
+## Trusted Platform Phase B6 — Persistent jobs and direct-video ElevenLabs transcription
 
 **Goal:** transcribe the original private MP4 asynchronously without adding Redis, FFmpeg, or derivative audio files.
 
@@ -305,7 +305,7 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
    - set `webhook = true` and attach the Submission/correlation ID through `webhook_metadata`;
    - set Submission `TRANSCRIBING` after provider acceptance.
 6. Do not extract audio, transcode the video, or create a temporary MP3 in the base path.
-7. Remove the prototype `audioExtractor`, `fluent-ffmpeg`, and `@types/fluent-ffmpeg` dependencies when implementing this phase.
+7. Keep the completed local P0 removal of `audioExtractor`, `fluent-ffmpeg`, and `@types/fluent-ffmpeg`; do not reintroduce them when implementing the durable path.
 8. Add an FFmpeg compatibility fallback only after representative Android MP4 files demonstrate a real unsupported-codec problem, and keep that fallback outside the normal path.
 9. Implement ElevenLabs webhook:
    - verify provider signature or configured callback secret;
@@ -320,11 +320,11 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
 
 ElevenLabs documents direct video/file input, `source_url`, asynchronous webhooks, and webhook metadata in the [Speech-to-Text convert API](https://elevenlabs.io/docs/api-reference/speech-to-text/convert). Content from the linked documentation has been rephrased for compliance with licensing restrictions.
 
-**Frontend handoff:** observable status progression and safe processing errors.
+**Next-gate input for Client layer:** observable status progression and safe processing errors.
 
-**Backend output:** the original uploaded video becomes a persisted transcript or recoverable error without a local media-conversion dependency.
+**Next-gate input:** the original uploaded video becomes a persisted transcript or recoverable error without a local media-conversion dependency.
 
-## Backend Phase B7 — Deliverable checks and AI filtering
+## Trusted Platform Phase B7 — Deliverable checks and AI filtering
 
 **Goal:** reliably exclude random or incomplete videos from Review Rounds.
 
@@ -351,11 +351,11 @@ ElevenLabs documents direct video/file input, `source_url`, asynchronous webhook
 14. Keep optional Gemini visual check feature-flagged and outside the critical path.
 15. Validate prepared compliant and random videos against expected outcomes.
 
-**Frontend handoff:** all terminal AI response examples with safe Deliverable evidence.
+**Next-gate input for Client layer:** all terminal AI response examples with safe Deliverable evidence.
 
-**Backend output:** only valid, relevant Submissions can reach reviewers.
+**Next-gate input:** only valid, relevant Submissions can reach reviewers.
 
-## Backend Phase B8 — Anonymous Review Round, feed, and Rating APIs
+## Trusted Platform Phase B8 — Anonymous Review Round, feed, and Rating APIs
 
 **Goal:** persist ratings from a tokenized five-video public feed.
 
@@ -384,11 +384,11 @@ ElevenLabs documents direct video/file input, `source_url`, asynchronous webhook
 14. Return `REVIEW_ROUND_NOT_FOUND`, `REVIEW_ROUND_NOT_OPEN`, and membership errors canonically.
 15. Rate-limit public Rating requests without blocking normal five-item use.
 
-**Frontend handoff:** raw review URL/QR target, open feed, Rating update, expired playback behavior.
+**Next-gate input for Client layer:** raw review URL/QR target, open feed, Rating update, expired playback behavior.
 
-**Backend output:** multiple anonymous devices can rate the same five Submissions safely.
+**Next-gate input:** multiple anonymous devices can rate the same five Submissions safely.
 
-## Backend Phase B9 — Transactional close and frozen Scoreboard
+## Trusted Platform Phase B9 — Transactional close and frozen Scoreboard
 
 **Goal:** make **End deadline** produce an immutable, deterministic result.
 
@@ -410,11 +410,11 @@ ElevenLabs documents direct video/file input, `source_url`, asynchronous webhook
 12. Implement admin Bounty result read including AI, Rating, rank, and Payout state.
 13. Ensure a concurrent late Rating either commits before closure and is included or fails after closure; never partially include it.
 
-**Frontend handoff:** deterministic closed response and populated Scoreboard examples.
+**Next-gate input for Client layer:** deterministic closed response and populated Scoreboard examples.
 
-**Backend output:** Review Round closure is repeatable, atomic, and presentation-safe.
+**Next-gate input:** Review Round closure is repeatable, atomic, and presentation-safe.
 
-## Backend Phase B10 — Simulated UGC and Influencer Payout ledger
+## Trusted Platform Phase B10 — Simulated UGC and Influencer Payout ledger
 
 **Goal:** prove the two business models without real-money infrastructure.
 
@@ -436,11 +436,11 @@ ElevenLabs documents direct video/file input, `source_url`, asynchronous webhook
 7. Label records as simulated in public model.
 8. Do not implement connected accounts, card collection, bank details, refunds, or live Stripe.
 
-**Frontend handoff:** one UGC Payout and multiple Influencer Payout response examples.
+**Next-gate input for Client layer:** one UGC Payout and multiple Influencer Payout response examples.
 
-**Backend output:** durable, non-duplicated simulated Payout records.
+**Next-gate input:** durable, non-duplicated simulated Payout records.
 
-## Backend Phase B11 — Demo-admin operations and reset
+## Trusted Platform Phase B11 — Demo-admin operations and reset
 
 **Goal:** expose every required operator action through safe APIs.
 
@@ -460,11 +460,11 @@ ElevenLabs documents direct video/file input, `source_url`, asynchronous webhook
 8. Keep any emergency pre-passed fixture endpoint separately feature-flagged and clearly observable.
 9. Return provider configured/not-configured health without values.
 
-**Frontend handoff:** endpoint readiness matrix and expected reset result.
+**Next-gate input for Client layer:** endpoint readiness matrix and expected reset result.
 
-**Backend output:** demo operator never needs direct database access.
+**Next-gate input:** demo operator never needs direct database access.
 
-## Backend Phase B12 — Security, resilience, and deployment
+## Trusted Platform Phase B12 — Security, resilience, and deployment
 
 **Goal:** make the compact architecture reliable enough for a live demo.
 
@@ -484,15 +484,15 @@ ElevenLabs documents direct video/file input, `source_url`, asynchronous webhook
 14. Add liveness/readiness checks that cover database connectivity without calling paid providers.
 15. Keep one API process capable of serving requests and polling lightweight jobs; avoid extra services unless proven necessary.
 
-**Frontend handoff:** deployed base URL, CORS origin confirmation, callback values, and health state.
+**Next-gate input for Client layer:** deployed base URL, CORS origin confirmation, callback values, and health state.
 
-**Backend output:** secure deployed platform with observable failure recovery.
+**Next-gate input:** secure deployed platform with observable failure recovery.
 
-## Backend Phase B13 — Integration and acceptance validation
+## Trusted Platform Phase B13 — Integration and acceptance validation
 
 **Goal:** prove real behavior against both clients and all critical demo paths.
 
-1. Run each checkpoint in `INTEGRATION_CONTRACT.md` with Developer A.
+1. Run each sequential gate in `INTEGRATION_CONTRACT.md` with both Client and Trusted Platform validations.
 2. Parse every request and response through shared schemas.
 3. Verify fixture IDs match database rows and frontend displays.
 4. Verify Meta account metrics match `/v1/me`.
@@ -513,13 +513,13 @@ ElevenLabs documents direct video/file input, `source_url`, asynchronous webhook
 19. Verify fallback demo login and pre-seeded closed round.
 20. Verify no API response leaks private token, path, transcript, or provider payload.
 
-**Frontend dependency:** deployed clients and real callback origins.
+**Prerequisite:** deployed clients and real callback origins.
 
-**Backend output:** all trusted behavior satisfies the shared contract end to end.
+**Next-gate input:** all trusted behavior satisfies the shared contract end to end.
 
-## 7. Backend endpoint readiness board
+## 7. Trusted Platform endpoint readiness board
 
-Developer B should mark an endpoint ready only after request validation, response validation, authorization, canonical errors, and fixture data work.
+A Trusted Platform endpoint is ready for the next Client gate only after request validation, response validation, authorization, canonical errors, and fixture data work.
 
 | Endpoint group | Enables frontend work |
 |---|---|
@@ -537,9 +537,9 @@ Developer B should mark an endpoint ready only after request validation, respons
 | Payout ledger | UGC/Influencer demo payments |
 | Reset/health | repeatable presentation |
 
-## 8. Backend acceptance checklist
+## 8. Trusted Platform acceptance checklist
 
-Developer B's work is complete when:
+Trusted Platform work is complete when:
 
 - public payloads conform exactly to shared contracts.
 - Creator and Demo Admin roles are isolated.

@@ -1,11 +1,11 @@
 # Clapback Shared Integration Contract
 
-This document is the binding interface between the two implementation tracks:
+This document is the binding interface between two architectural layers executed sequentially by one implementation owner:
 
-- **Developer A — Frontend/App:** Expo Android creator app and React reviewer/admin web app.
-- **Developer B — Backend/Platform:** Fastify API, Supabase database/storage, OAuth server flow, AI processing, scoring, and payout ledger.
+- **Client layer:** Expo Android Creator app and React reviewer/admin web app.
+- **Trusted Platform layer:** Fastify API, Supabase database/storage, OAuth server flow, AI processing, scoring, and Payout ledger.
 
-If either implementation disagrees with this document, this document wins until both developers deliberately revise it. Do not silently rename a field, add a status, change a payload shape, or reproduce backend calculations in a client.
+If either layer's implementation disagrees with this document, this document wins until the contract is deliberately revised. Do not silently rename a field, add a status, change a payload shape, or reproduce Trusted Platform calculations in the Client layer.
 
 ## 1. Source-of-truth files
 
@@ -28,14 +28,14 @@ packages/demo-data/
     creators.ts           Demo-only creator fixtures
 ```
 
-Ownership rules:
+Layer rules:
 
-1. Developer B implements and validates server behavior against `packages/contracts`.
-2. Developer A imports the same package into mobile and web; do not manually copy interfaces.
-3. Both developers may propose contract changes, but one contract change must be agreed and merged before either side relies on it.
+1. The Trusted Platform layer implements and validates server behavior against `packages/contracts`.
+2. The Client layer imports the same package into mobile and web; do not manually copy interfaces.
+3. Contract changes are completed first, before either layer relies on them.
 4. `packages/contracts` must not import React, Expo, Fastify, Supabase, or provider SDKs.
-5. `packages/contracts` contains public wire contracts only. Database-only fields and provider payloads stay in the backend.
-6. `packages/demo-data` owns stable fixture IDs. Neither client nor server invents a second ID for the same fixture.
+5. `packages/contracts` contains public wire contracts only. Database-only fields and provider payloads stay in the Trusted Platform layer.
+6. `packages/demo-data` owns stable fixture IDs. Neither layer invents a second ID for the same fixture.
 
 ## 2. Canonical terminology
 
@@ -67,7 +67,7 @@ UI copy may use friendlier phrases, but models and APIs use the canonical names.
 
 1. TypeScript uses `camelCase`.
 2. API JSON uses `camelCase`.
-3. PostgreSQL columns use `snake_case` and are mapped by Developer B before returning JSON.
+3. PostgreSQL columns use `snake_case` and are mapped by the Trusted Platform layer before returning JSON.
 4. API enum values use uppercase `SCREAMING_SNAKE_CASE` exactly as listed below.
 5. IDs are UUID strings unless a field explicitly says otherwise.
 6. Monetary amounts are integer cents and end in `Cents`; never send floating-point currency.
@@ -295,20 +295,14 @@ Every successful API response uses:
 
 ```json
 {
-  "data": {}
-}
-```
-
-List endpoints use:
-
-```json
-{
-  "data": [],
+  "data": {},
   "meta": {
     "requestId": "req_..."
   }
 }
 ```
+
+For list endpoints, `data` is an array and the same `meta.requestId` field is present.
 
 Every error uses:
 
@@ -361,9 +355,9 @@ At minimum, both sides support these codes:
 | `RATE_LIMITED` | Disable action briefly and offer retry |
 | `INTERNAL_ERROR` | Show retry plus request ID on admin pages |
 
-## 8. Endpoint contract and ownership
+## 8. Endpoint contract and layer responsibilities
 
-Developer B owns implementation. Developer A owns consumption and UI states.
+The Trusted Platform layer implements and validates endpoints. The Client layer consumes them and implements UI states.
 
 | Method and path | Auth | Request | Response `data` | Idempotency |
 |---|---|---|---|---|
@@ -377,10 +371,10 @@ Developer B owns implementation. Developer A owns consumption and UI states.
 | `GET /v1/bounties` | Creator | none | `Bounty[]` | no |
 | `POST /v1/bounties/:bountyId/accept` | Creator | none | `Acceptance` | yes |
 | `GET /v1/acceptances` | Creator | none | `Acceptance[]` | no |
-| `POST /v1/submissions` | Creator | `{ acceptanceId, filename, mimeType, sizeBytes }` | `{ submission, upload }` | yes |
-| `POST /v1/submissions/:submissionId/upload-complete` | Creator | `{ sizeBytes }` | `SubmissionSummary` | yes |
+| `POST /v1/submissions` | Creator | local profile: multipart `acceptanceId` + `video`; required `Idempotency-Key` header | `{ submission }` | yes |
+| `POST /v1/submissions/:submissionId/upload-complete` | Creator | reserved for durable TUS; unsupported locally | canonical `INVALID_SUBMISSION_STATE` error | no |
 | `GET /v1/submissions/:submissionId` | Creator | none | `SubmissionSummary` | no |
-| `POST /v1/submissions/:submissionId/retry` | Creator | none | `{ submission, upload }` | yes |
+| `POST /v1/submissions/:submissionId/retry` | Creator | local profile directs replacement media to `POST /v1/submissions` | canonical retry/instruction error | no |
 | `POST /v1/review/:token/session` | public token | `{ anonymousToken }` | `{ reviewerSessionId }` | yes |
 | `GET /v1/review/:token/feed` | review session | none | `ReviewFeed` | no |
 | `PUT /v1/review/:token/ratings/:submissionId` | review session | `{ score }` | `{ submissionId, score, ratedCount, totalCount }` | yes |
@@ -399,9 +393,22 @@ Developer B owns implementation. Developer A owns consumption and UI states.
 
 Provider webhook routes are backend-only and are not imported into frontend endpoint helpers.
 
-## 9. Upload object contract
+## 9. Upload contracts
 
-`POST /v1/submissions` and retry endpoints return an upload descriptor. Its initial supported form is:
+### 9.1 Active local prototype profile
+
+The current Express prototype supports one explicit local-only upload path:
+
+1. The Client sends `multipart/form-data` to `POST /v1/submissions` with text field `acceptanceId`, file field `video`, and a required `Idempotency-Key` header.
+2. The Trusted Platform derives Creator and Bounty from the owned active Acceptance; it never trusts a client-supplied Creator or Bounty ID.
+3. A replay with the same Creator/idempotency key returns the original Submission and discards the duplicate local file.
+4. A different key is rejected while that Acceptance already has a non-failed Submission. A replacement is allowed only after `AI_FAILED` or `PROCESSING_ERROR`.
+5. Success returns `{ submission: SubmissionSummary }`. The local profile does not return an `UploadDescriptor`, does not claim TUS support, and does not use `upload-complete`.
+6. This profile exists only to validate the local contract/security/media gate. It is not the mobile production transport.
+
+### 9.2 Target durable signed-TUS profile — not implemented
+
+The private Storage gate will deliberately revise `POST /v1/submissions` and retry behavior to return this upload descriptor:
 
 ```ts
 export type UploadDescriptor = {
@@ -414,17 +421,18 @@ export type UploadDescriptor = {
 };
 ```
 
-Rules:
+Target durable rules:
 
-1. Developer A does not construct a Supabase path.
-2. Developer A sends exactly the returned headers to the returned endpoint.
-3. Developer A reports progress from the TUS client.
-4. Developer A calls `upload-complete` only after TUS success.
-5. Developer B verifies the stored object before changing the Submission to `QUEUED`.
+1. The Client layer does not construct a Supabase path.
+2. The Client layer sends exactly the returned headers to the returned endpoint.
+3. The Client layer reports progress from the TUS client.
+4. The Client layer calls `upload-complete` only after TUS success.
+5. The Trusted Platform layer verifies the stored object before changing the Submission to `QUEUED`.
 6. A new retry receives a new Submission ID and storage path.
 7. Signed credentials and storage paths must not be persisted in analytics or logs.
+8. Gate D cannot close until this target replaces the local profile in shared schemas, runtime behavior, and real Android validation.
 
-## 10. Authentication handoff contract
+## 10. Authentication boundary contract
 
 ### Mobile Meta flow
 
@@ -448,7 +456,7 @@ Rules:
 
 ## 11. Submission state contract
 
-Only Developer B transitions `SubmissionStatus`. Developer A renders it.
+Only the Trusted Platform layer transitions `SubmissionStatus`. The Client layer renders it.
 
 ```text
 CREATED -> UPLOADING -> UPLOADED -> QUEUED
@@ -526,137 +534,141 @@ Submission state rules:
 7. Niche slugs are stable lowercase values: `beauty`, `fashion`, `food`, `fitness`, `gaming`, `technology`, `lifestyle`.
 8. `All niches` is not a Niche record; it is `CreatorProfile.allNiches = true`.
 
-## 15. Frontend/backend ownership boundary
+## 15. Client/Trusted Platform responsibility boundary
 
-| Concern | Developer A — Frontend/App | Developer B — Backend/Platform |
+| Concern | Client layer | Trusted Platform layer |
 |---|---|---|
-| Expo screens and navigation | owns | does not edit |
-| React reviewer/admin pages | owns | does not edit |
-| Loading/error/empty UI | owns | supplies stable errors |
-| Secure local app token storage | owns | defines token behavior |
-| API client and query cache | owns | supplies endpoints/contracts |
-| Swipe gesture and video playback | owns | supplies Bounty/feed data |
-| TUS client and progress UI | owns | signs and verifies upload |
-| Database schema and migrations | does not edit | owns |
-| Supabase bucket and policies | does not edit | owns |
-| Workflow transitions | renders only | owns |
-| Meta secret/code exchange | opens flow only | owns |
-| ClapScore and eligibility | displays only | owns |
-| STT/LLM processing | displays status only | owns |
-| Review candidate validation | displays result only | owns |
-| Rating persistence | sends score | owns validation/upsert |
-| Scoreboard calculation | displays only | owns |
-| Payout calculation/ledger | displays and triggers | owns |
-| Shared contract | imports/proposes | implements/proposes |
-| Fixture visual assets | owns assets | owns IDs/data seed |
+| Expo screens and navigation | implements | does not edit |
+| React reviewer/admin pages | implements | does not edit |
+| Loading/error/empty UI | implements | supplies stable errors |
+| Secure local app token storage | implements | defines token behavior |
+| API client and query cache | implements | supplies endpoints/contracts |
+| Swipe gesture and video playback | implements | supplies Bounty/feed data |
+| TUS client and progress UI | implements | signs and verifies upload |
+| Database schema and migrations | does not edit | implements |
+| Supabase bucket and policies | does not edit | implements |
+| Workflow transitions | renders only | enforces |
+| Meta secret/code exchange | opens flow only | implements |
+| ClapScore and eligibility | displays only | calculates authoritatively |
+| STT/LLM processing | displays status only | implements |
+| Review candidate validation | displays result only | validates authoritatively |
+| Rating persistence | sends score | validates and upserts |
+| Scoreboard calculation | displays only | calculates authoritatively |
+| Payout calculation/ledger | displays and triggers | calculates and persists |
+| Shared contract | imports and validates consumption | implements and validates production |
+| Fixture visual assets and IDs | uses visual assets | supplies stable IDs/data seed |
 
-## 16. Parallel-development handoff rules
+## 16. Sequential gate inputs and outputs
 
-### Backend gives frontend
+One implementation owner advances through these gates in order. A later gate starts only after its required inputs are complete and validated.
 
-1. Published `packages/contracts` build.
+### Trusted Platform outputs consumed by Client gates
+
+1. Built `packages/contracts` artifacts.
 2. Base API URL and allowed mobile/web origins.
-3. Fixture IDs and seeded demo credentials through a secure channel.
+3. Fixture IDs and seeded demo credentials supplied through a secure channel.
 4. A populated local/demo environment or mock JSON conforming to schemas.
 5. Endpoint readiness checklist.
 6. Known error codes for each endpoint.
 7. OAuth callback and deep-link configuration values.
 8. Upload size/type rules.
 
-### Frontend gives backend
+### Client outputs consumed by Trusted Platform gates
 
 1. Exact mobile deep-link URI.
 2. Web deployment origin for CORS.
-3. Anonymous reviewer token transport choice: cookie or explicit header.
+3. Anonymous Reviewer Session token transport choice: cookie or explicit header.
 4. TUS client proof against a signed upload descriptor.
 5. UI screenshots/state list showing every consumed backend status.
-6. Request IDs when reporting backend failures.
+6. Request IDs from observed backend failures.
 
-### Work may proceed in parallel when
+### Gate advancement rules
 
-- Developer A uses contract-validated mocks rather than inventing payloads.
-- Developer B implements endpoint behavior against the same Zod schemas.
-- Both use fixture IDs from `packages/demo-data`.
-- Neither changes an enum or endpoint shape without updating the contract first.
+- Contract-validated mocks may support Client work before the matching endpoints exist, but each real endpoint must pass the same schemas before its consumption gate closes.
+- Endpoint behavior and all consumers use the same Zod schemas.
+- Every gate uses fixture IDs from `packages/demo-data`.
+- Enum or endpoint shape changes update the contract before implementation or consumption proceeds.
+- Validation evidence from the current gate becomes the input record for the next gate.
 
-## 17. Integration checkpoints
+## 17. Sequential integration gates
 
-These checkpoints are sequence gates, not schedule estimates.
+These gates are completed in order and are not schedule estimates.
 
-### Checkpoint A — Contract compiles
+### Gate A — Contract compiles
 
-- Both mobile and web import shared enums/models.
-- API imports request/response schemas.
+- Mobile and web import shared enums/models.
+- The Trusted Platform API imports request/response schemas.
 - Fixture IDs are shared.
 - One example success and one example error parse in all consumers.
 
-### Checkpoint B — Authentication handoff
+### Gate B — Authentication boundary
 
-- Android opens backend Meta start URL.
-- Backend returns through `clapback://oauth/callback`.
+- Android opens the Trusted Platform Meta start URL.
+- The Trusted Platform returns through `clapback://oauth/callback`.
 - Mobile exchanges code and calls `/v1/me`.
 - Refresh rotation succeeds once and concurrent calls do not race.
 
-### Checkpoint C — Bounty and acceptance
+### Gate C — Bounty and Acceptance
 
-- Mobile renders real `/v1/bounties` response.
+- Mobile renders the real `/v1/bounties` response.
 - Right swipe creates an Acceptance once.
 - Existing Acceptance behaves idempotently.
-- Eligibility and payout displayed by mobile match backend response exactly.
+- Eligibility and Payout displayed by mobile match the Trusted Platform response exactly.
 
-### Checkpoint D — Upload and processing
+### Gate D — Upload and processing
 
-- Mobile and admin web both consume the same `UploadDescriptor`.
+- Mobile and admin web consume the same `UploadDescriptor`.
 - TUS upload completes.
 - `upload-complete` queues processing.
-- Status progression renders without frontend-created states.
+- Status progression renders without Client-created states.
 - One valid and one invalid video reach expected terminal states.
 
-### Checkpoint E — Review
+### Gate E — Review
 
-- Admin opens a round with five backend-approved Submission IDs.
+- Admin opens a round with five Trusted Platform-approved Submission IDs.
 - QR URL works on a separate device.
-- Reviewer ratings persist and update.
+- Reviewer Ratings persist and update.
 - Closed round disables writes.
 
-### Checkpoint F — Scoreboard and payout
+### Gate F — Scoreboard and Payout
 
-- Backend closes and freezes ranking.
-- Both reviewer and admin pages render the same entries.
-- One UGC payout and multiple influencer payouts are idempotent.
+- The Trusted Platform closes and freezes ranking.
+- Reviewer and admin pages render the same entries.
+- One UGC Payout and multiple Influencer Payouts are idempotent.
 
 ## 18. Contract-change protocol
 
-When either developer needs a change:
+When the implementation needs a contract change:
 
 1. Describe the user-facing reason.
 2. Edit `packages/contracts` and this document first.
 3. Mark the change as additive or breaking.
-4. Update shared fixtures/mocks.
-5. Update backend implementation.
-6. Update frontend consumption.
-7. Run schema parsing/type checks in all three applications.
-8. Remove any temporary compatibility field once both tracks have switched.
+4. Update shared fixtures and contract-validated mocks.
+5. Update the Trusted Platform implementation and validate produced responses.
+6. Update Client consumption and validate parsed responses.
+7. Run schema parsing and type checks in all three applications.
+8. Remove temporary compatibility fields only after both layers use the revised contract.
+9. Record the completed validation as the input for the next sequential gate.
 
 Forbidden shortcuts:
 
 - `any` around an API response;
-- duplicate handwritten frontend response interfaces;
-- client-side conversion of a new undocumented status;
+- duplicate handwritten Client response interfaces;
+- Client-side conversion of a new undocumented status;
 - returning database rows directly from API handlers;
 - adding fields that mean the same thing under different names;
-- calculating ClapScore, final ranking, or payout independently in the frontend;
+- calculating ClapScore, final ranking, or Payout independently in the Client layer;
 - using brand, campaign, entry, vote, or leaderboard as model names where the canonical terms apply.
 
-## 19. Definition of integration-ready
+## 19. Definition of gate-ready
 
-A feature is integration-ready only when:
+A feature may advance to its next sequential gate only when:
 
 1. Its request and response parse through shared schemas.
 2. All referenced enum values are canonical.
 3. Success, empty, loading, and documented error states have behavior.
-4. IDs originate from the backend/shared fixtures.
+4. IDs originate from the Trusted Platform/shared fixtures.
 5. Money and timestamps follow serialization rules.
-6. Mutations are protected from duplicate taps through client disabling and backend idempotency.
+6. Mutations are protected from duplicate taps through Client disabling and Trusted Platform idempotency.
 7. Logs contain a request ID but no secret.
-8. The opposite developer can test it without reading internal implementation code.
+8. The next gate can validate the feature through public contracts without reading internal implementation code.

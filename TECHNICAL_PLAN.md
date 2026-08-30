@@ -75,7 +75,7 @@ Node.js API (Fastify) ---------------------- React web app
         +---- ElevenLabs STT webhook
         +---- LLM deliverable evaluator
 
-Developer browser -- /demo-admin -- QR code --> Reviewer phones
+Admin browser -- /demo-admin -- QR code --> Reviewer phones
 ```
 
 ### 3.1 Repository shape
@@ -85,60 +85,60 @@ Use a small TypeScript monorepo so mobile, web, and API share IDs, enums, valida
 ```text
 ClapBack/
   apps/
-    mobile/                 Expo Android creator app
-    web/                    React + Vite reviewer and demo-admin pages
+    mobile/                 Client layer: Expo Android Creator app
+    web/                    Client layer: React + Vite reviewer and demo-admin pages
   services/
-    api/                    Node.js + Fastify REST API and job poller
+    api/                    Trusted Platform layer: Node.js + Fastify API and job poller
   packages/
-    shared/                 Zod schemas, API types, enums, scoring helpers
-    demo-data/              Code-owned bounty and creator fixtures
+    contracts/              Shared boundary: Zod schemas, API types, enums, endpoint constants
+    demo-data/              Shared boundary: code-owned Bounty and Creator fixtures
   supabase/
-    migrations/             SQL schema, constraints, indexes, storage policies
-    seed.sql                Upserts fixed demo bounty IDs
+    migrations/             Trusted Platform layer: SQL schema, constraints, indexes, policies
+    seed.sql                Trusted Platform layer: upserts fixed demo Bounty IDs
   docs/
     demo-script.md              Exact presentation sequence and fallback path
-    INTEGRATION_CONTRACT.md     Binding names, enums, payloads, and handoffs
-    FRONTEND_APP_PLAN.md        Developer A phase-wise implementation plan
-    BACKEND_PLATFORM_PLAN.md    Developer B phase-wise implementation plan
+    INTEGRATION_CONTRACT.md     Binding names, enums, payloads, and sequential gates
+    FRONTEND_APP_PLAN.md        Client layer phase-wise implementation plan
+    BACKEND_PLATFORM_PLAN.md    Trusted Platform layer phase-wise implementation plan
   basic.md
   TECHNICAL_PLAN.md
 ```
 
-### 3.1.1 Two-developer execution model
+### 3.1.1 Single-owner sequential execution model
 
-This master document remains the product and system design. Implementation is split into two parallel plans:
+This master document remains the product and system design. One implementation owner executes the work sequentially across two architectural layers:
 
-- **Developer A — Frontend/App:** follow [`docs/FRONTEND_APP_PLAN.md`](./docs/FRONTEND_APP_PLAN.md). This developer owns the Expo Android creator app plus the React reviewer and demo-admin web pages.
-- **Developer B — Backend/Platform:** follow [`docs/BACKEND_PLATFORM_PLAN.md`](./docs/BACKEND_PLATFORM_PLAN.md). This developer owns Fastify, Supabase, Meta's server-side flow, uploads, AI processing, Review Rounds, Scoreboard calculation, and the simulated Payout ledger.
-- **Both developers:** follow [`docs/INTEGRATION_CONTRACT.md`](./docs/INTEGRATION_CONTRACT.md). It is the binding source for terminology, enums, JSON field names, endpoints, errors, state transitions, fixture IDs, money/timestamp formats, and integration checkpoints.
+- **Client layer:** follow [`docs/FRONTEND_APP_PLAN.md`](./docs/FRONTEND_APP_PLAN.md) for the Expo Android Creator app plus the React reviewer and demo-admin web pages.
+- **Trusted Platform layer:** follow [`docs/BACKEND_PLATFORM_PLAN.md`](./docs/BACKEND_PLATFORM_PLAN.md) for Fastify, Supabase, Meta's server-side flow, uploads, AI processing, Review Rounds, Scoreboard calculation, and the simulated Payout ledger.
+- **Shared contract:** follow [`docs/INTEGRATION_CONTRACT.md`](./docs/INTEGRATION_CONTRACT.md) as the binding source for terminology, enums, JSON field names, endpoints, errors, state transitions, fixture IDs, money/timestamp formats, and sequential integration gates.
 
-| Area | Developer A — Frontend/App | Developer B — Backend/Platform |
+| Area | Client layer responsibility | Trusted Platform layer responsibility |
 |---|---|---|
-| Expo Android Creator experience | owns | supplies APIs |
-| React reviewer and demo-admin pages | owns | supplies APIs |
-| Swipe gestures, playback, QR display, UI state | owns | does not implement |
-| API client, secure client token storage, TUS progress | owns | defines and validates protocol |
-| Fastify routes and authorization | consumes | owns |
-| Supabase schema, seed, and private Storage | does not edit | owns |
-| Meta secret exchange and metrics ingestion | opens browser/deep link | owns |
-| Submission state transitions | renders | owns |
-| ElevenLabs and LLM processing | renders status/results | owns |
-| ClapScore, eligibility, ranking, Payout amounts | displays returned values | owns calculations |
-| Shared contracts and fixture IDs | imports and proposes changes | implements and proposes changes |
+| Expo Android Creator experience | implements screens and interactions | supplies contract-valid APIs |
+| React reviewer and demo-admin pages | implements screens and interactions | supplies contract-valid APIs |
+| Swipe gestures, playback, QR display, UI state | implements | does not implement |
+| API client, secure client token storage, TUS progress | implements | defines and validates protocol |
+| Fastify routes and authorization | consumes | implements |
+| Supabase schema, seed, and private Storage | does not edit | implements |
+| Meta secret exchange and metrics ingestion | opens browser/deep link | implements |
+| Submission state transitions | renders | enforces |
+| ElevenLabs and LLM processing | renders status/results | implements |
+| ClapScore, eligibility, ranking, Payout amounts | displays returned values | calculates authoritatively |
+| Shared contracts and fixture IDs | imports and validates at consumption | implements and validates at production |
 
 Rules that prevent integration bugs:
 
 1. Use the canonical product nouns: **Creator**, **Bounty**, **Acceptance**, **Submission**, **Deliverable**, **Review Round**, **Reviewer Session**, **Rating**, **Scoreboard Entry**, and **Payout**.
-2. Define wire types once in `packages/contracts`; neither side keeps handwritten duplicate response interfaces.
-3. Define stable demo IDs once in `packages/demo-data`; neither side invents replacement IDs.
-4. Backend returns camelCase JSON, uppercase canonical enum values, integer cents, and UTC ISO timestamps.
-5. Frontend never calculates or guesses ClapScore, eligibility, final rank, AI pass/fail, or Payout amount.
-6. Backend never edits client loading/navigation behavior and never returns raw database or provider objects.
-7. Contract changes are agreed and merged before either implementation depends on them.
-8. Frontend may build against contract-validated mocks while Backend implements the same schemas.
-9. Integration proceeds through the checkpoints in the shared contract: contract, authentication, Bounty/Acceptance, upload/processing, review, and Scoreboard/Payout.
+2. Define wire types once in `packages/contracts`; neither layer keeps handwritten duplicate response interfaces.
+3. Define stable demo IDs once in `packages/demo-data`; neither layer invents replacement IDs.
+4. The Trusted Platform layer returns camelCase JSON, uppercase canonical enum values, integer cents, and UTC ISO timestamps.
+5. The Client layer never calculates or guesses ClapScore, eligibility, final rank, AI pass/fail, or Payout amount.
+6. The Trusted Platform layer never controls client loading/navigation behavior and never returns raw database or provider objects.
+7. Contract changes are completed before either layer depends on them.
+8. The Client layer may build against contract-validated mocks before the corresponding Trusted Platform endpoints are implemented.
+9. Execution advances through the shared contract gates in order: contract, authentication, Bounty/Acceptance, upload/processing, review, and Scoreboard/Payout.
 
-The detailed Phase 0–13 plan below still describes the full system. For task assignment, the two role-specific plans take precedence so each task has one clear owner.
+The detailed Phase 0–13 plan below still describes the full system. The layer-specific plans provide the sequential task order and preserve one clear architectural responsibility for each task.
 
 Recommended package choices:
 
@@ -160,7 +160,7 @@ The ElevenLabs Speech-to-Text convert API accepts major audio and video formats 
 
 Removing FFmpeg avoids a deprecated wrapper dependency, native binary deployment, temporary MP3 handling, format-conversion failures, and a second copy of every Submission. FFmpeg may be introduced only as a documented compatibility fallback after representative Android MP4 files demonstrate a codec/container problem that ElevenLabs cannot handle directly.
 
-The pulled Express prototype currently converts MP4 to MP3 with `fluent-ffmpeg`; that implementation is non-conforming and must be replaced by the direct-video path before frontend integration.
+The pulled Express prototype originally converted MP4 to MP3 with `fluent-ffmpeg`. The local P0 gate removed that drift: the prototype now sends the original MP4 directly as multipart `file`, while the durable signed-`source_url`/webhook path remains the next platform gate.
 
 Reference: [ElevenLabs Speech-to-Text convert API](https://elevenlabs.io/docs/api-reference/speech-to-text/convert). Content from the linked documentation has been rephrased for compliance with licensing restrictions.
 
