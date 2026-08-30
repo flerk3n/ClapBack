@@ -2,7 +2,7 @@ import { niches } from '@clapback/demo-data';
 import { colors, radii, spacing } from '@clapback/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/app-button';
@@ -17,20 +17,38 @@ export default function NicheSelectionScreen() {
   const { allNiches: initialAll, selectedNicheIds: initialIds, setCreatorNiches } = useMockApp();
   const [allNiches, setAllNiches] = useState(initialAll);
   const [selectedIds, setSelectedIds] = useState(initialIds);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   const toggleNiche = (id: number) => {
+    setError(null);
     setAllNiches(false);
     setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   };
 
   const chooseAll = () => {
+    setError(null);
     setAllNiches(true);
     setSelectedIds([]);
   };
 
   const continueToBounties = async () => {
-    await setCreatorNiches(allNiches, selectedIds);
-    router.replace('/(tabs)/discover');
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await setCreatorNiches(allNiches, selectedIds);
+      router.replace('/(tabs)/discover');
+    } catch (submissionError) {
+      setError(submissionError instanceof Error
+        ? submissionError.message
+        : 'Could not save your niches. Try again.');
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   const canContinue = allNiches || selectedIds.length > 0;
@@ -65,10 +83,17 @@ export default function NicheSelectionScreen() {
         </View>
       </ScrollView>
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing[4]) }]}>
+        {error ? <AppText variant="caption" style={styles.errorText}>{error}</AppText> : null}
         <AppText variant="caption" tone="muted" style={styles.selectionCount}>
           {allNiches ? 'All niches selected' : `${selectedIds.length} selected`}
         </AppText>
-        <AppButton label="See Bounties" icon="arrow-forward" disabled={!canContinue} onPress={continueToBounties} />
+        <AppButton
+          label="See Bounties"
+          icon="arrow-forward"
+          disabled={!canContinue || submitting}
+          loading={submitting}
+          onPress={continueToBounties}
+        />
       </View>
     </Screen>
   );
@@ -86,5 +111,6 @@ const styles = StyleSheet.create({
   label: { marginTop: spacing[8], marginBottom: spacing[3] },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
   bottomBar: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.canvas, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 20, paddingTop: spacing[3], paddingBottom: spacing[4] },
+  errorText: { color: colors.crimson, textAlign: 'center', marginBottom: spacing[2] },
   selectionCount: { textAlign: 'center', marginBottom: spacing[2] },
 });

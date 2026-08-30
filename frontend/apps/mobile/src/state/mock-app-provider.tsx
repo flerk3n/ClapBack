@@ -129,7 +129,10 @@ export function MockAppProvider({ children }: PropsWithChildren) {
   }, [upsertSubmission]);
 
   const allNiches = creator.allNiches;
-  const selectedNicheIds = creator.niches.map(niche => niche.id);
+  const selectedNicheIds = useMemo(
+    () => creator.allNiches ? [] : creator.niches.map(niche => niche.id),
+    [creator.allNiches, creator.niches],
+  );
   const value = useMemo<MockAppContextValue>(() => ({
     isHydrated,
     isAuthenticated,

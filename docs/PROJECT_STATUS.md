@@ -54,6 +54,7 @@ Location: `frontend/apps/mobile`
 
 - Backend demo login with SecureStore access/refresh token persistence.
 - Backend-backed Niche selection, Bounty retrieval, Acceptance, and restoration.
+- All-Niches profiles restore as mutually exclusive state; onboarding prevents duplicate saves and displays API failures without unhandled Promise rejections.
 - Existing swipe UI and stable Bounty visuals, including Uniqlo Men's Outfit Haul.
 - Real MP4 selection, preview, XHR multipart upload, picker-duration preflight, and byte progress.
 - Polling of `QUEUED`, `TRANSCRIBING`, and `EVALUATING` to terminal AI state.
@@ -215,6 +216,12 @@ Not yet validated:
 6. Freeze the demo environment; do not resume production infrastructure work unless the demo requires it.
 
 ## Change log
+
+### 2026-08-30 — Niche onboarding state fix
+
+- Normalized restored All-Niches profiles so expanded response Niches are not resubmitted as individual selections.
+- Added guarded onboarding submission, loading state, and visible API error handling.
+- Passed mobile typecheck, `git diff --check`, and lint with only the pre-existing `metric-block.tsx` warning.
 
 ### 2026-08-30 — Gemini 2.5 Flash-only verification
 
