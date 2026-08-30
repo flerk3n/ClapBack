@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Auto Conventional Commit on Save",
+      "trigger": "PostFileSave",
+      "description": "After a file save, safely creates a focused Conventional Commit for the relevant change without staging secrets, generated output, or unrelated work.",
+      "action": {
+        "type": "agent",
+        "prompt": "When a file is saved, assess whether there is a completed, meaningful source, configuration, migration, test, or documentation change ready to commit. Use the PostFileSave context and `git status --short` plus focused diffs to identify only files belonging to that change.\n\nNever stage or commit `.env`, `.env.*` (except an intentional `.env.example` change), credentials, private keys, secret-bearing files, `.git/`, `node_modules/`, `.next/`, coverage, build output, or unrelated pre-existing changes. Do not use `git add .` or `git add -A`; stage each intended path explicitly with `git add -- <path>`.\n\nIf the save is only partial work, formatting noise, an ignored/sensitive/generated file, or there is no coherent change, do not commit.\n\nFor a coherent change, write a specific Conventional Commit subject following this rule: `<type>(<optional-scope>): <imperative lowercase summary>`, with types limited to `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `style`, or `chore`. Use `feat` only for new user-facing capability and `fix` only for a defect. Never use vague summaries such as `update`, `changes`, `wip`, or `misc`; keep the subject at most 100 characters and do not end it with punctuation.\n\nBefore committing, lint the message against that Conventional Commit rule. If this repository later provides a local `commitlint` executable, run it without downloading packages (for example, `npx --no-install commitlint --edit .git/COMMIT_EDITMSG`) and resolve any failure. Then run `git commit -m \"<validated message>\"`. Do not amend commits, bypass Git hooks, rewrite history, push, or commit if validation fails. Report the committed hash and subject, or clearly state why no commit was created."
+      }
+    }
+  ]
+}
