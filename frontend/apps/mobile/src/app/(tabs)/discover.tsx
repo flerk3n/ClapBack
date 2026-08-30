@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { AppButton } from '@/components/app-button';
 import { AppText } from '@/components/app-text';
@@ -56,10 +57,15 @@ export default function DiscoverScreen() {
     <Screen edges={['top']} style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.headerTitleArea}>
-          <AppText variant="caption" tone="muted">GOOD AFTERNOON</AppText>
+          <View style={styles.greetingRow}>
+            <View style={styles.livePulse} />
+            <AppText variant="caption" tone="muted" style={{ letterSpacing: 1 }}>GOOD AFTERNOON</AppText>
+          </View>
           <AppText variant="heading">Find your next take.</AppText>
         </View>
-        <Avatar name={creator.displayName} size={44} />
+        <View style={styles.avatarContainer}>
+          <Avatar name={creator.displayName} size={42} />
+        </View>
       </View>
 
       <View style={styles.filterRow}>
@@ -76,7 +82,7 @@ export default function DiscoverScreen() {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setFilterOpen(true);
           }}>
-          <Ionicons name="options-outline" size={19} color={colors.ink} />
+          <Ionicons name="options-outline" size={18} color={colors.ink} />
         </Pressable>
       </View>
 
@@ -129,15 +135,23 @@ export default function DiscoverScreen() {
             style={({ pressed }) => [styles.actionButton, styles.skipButton, pressed && styles.actionPressed]}>
             <Ionicons name="close" size={28} color={colors.ink} />
           </Pressable>
-          <View style={styles.swipeHint}>
-            <AppText variant="caption" tone="muted">SWIPE OR TAP</AppText>
+          <View style={styles.swipePill}>
+            <Ionicons name="chevron-back" size={11} color={colors.inkMuted} />
+            <AppText variant="eyebrow" style={styles.swipePillText}>SWIPE</AppText>
+            <Ionicons name="chevron-forward" size={11} color={colors.inkMuted} />
           </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Accept Bounty"
             onPress={() => { void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); handleAccept(topBounty); }}
-            style={({ pressed }) => [styles.actionButton, styles.acceptButton, pressed && styles.actionPressed]}>
-            <Ionicons name="heart" size={27} color={colors.white} />
+            style={({ pressed }) => [styles.actionButton, styles.acceptButtonWrapper, pressed && styles.actionPressed]}>
+            <LinearGradient
+              colors={['#E85A3C', '#C23D23']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.acceptButtonGradient}>
+              <Ionicons name="heart" size={27} color={colors.white} />
+            </LinearGradient>
           </Pressable>
         </View>
       ) : null}
@@ -257,6 +271,15 @@ const styles = StyleSheet.create({
   screen: { paddingTop: spacing[3], paddingBottom: 0 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: spacing[2] },
   headerTitleArea: { gap: 2 },
+  greetingRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  livePulse: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.coral },
+  avatarContainer: {
+    padding: 2,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+  },
   filterRow: { height: 32, flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] },
   liveDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.eucalyptus },
   filterButton: { marginLeft: 'auto', width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
@@ -269,11 +292,21 @@ const styles = StyleSheet.create({
     gap: spacing[5],
     marginTop: spacing[2],
   },
-  actionButton: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', ...shadows.floating },
-  skipButton: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  acceptButton: { backgroundColor: colors.coral },
-  actionPressed: { transform: [{ scale: 0.94 }] },
-  swipeHint: { width: 72, alignItems: 'center' },
+  actionButton: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', ...shadows.floating },
+  skipButton: { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border },
+  acceptButtonWrapper: { overflow: 'hidden' },
+  acceptButtonGradient: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  actionPressed: { transform: [{ scale: 0.93 }] },
+  swipePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: spacing[2],
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(24,24,22,0.06)',
+  },
+  swipePillText: { fontSize: 10, letterSpacing: 1.2, color: colors.inkMuted },
   emptyCard: { borderRadius: radii.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', padding: spacing[6], gap: spacing[2] },
   emptyIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.eucalyptusWash, alignItems: 'center', justifyContent: 'center' },
   center: { textAlign: 'center' },

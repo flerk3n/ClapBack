@@ -12,37 +12,53 @@ export default function CreatorTabsLayout() {
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: colors.canvas },
-        tabBarActiveTintColor: colors.ink,
+        tabBarActiveTintColor: colors.coral,
         tabBarInactiveTintColor: colors.inkMuted,
-        tabBarLabelStyle: { fontFamily: 'DMSans_600SemiBold', fontSize: 11, marginTop: 1 },
+        tabBarLabelStyle: {
+          fontFamily: 'DMSans_700Bold',
+          fontSize: 11,
+          marginTop: 2,
+          letterSpacing: 0.2,
+        },
         tabBarStyle: {
-          height: 56 + bottomInset,
-          paddingTop: 6,
-          paddingBottom: Math.max(bottomInset, 6),
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          elevation: 8,
+          height: 58 + bottomInset,
+          paddingTop: 7,
+          paddingBottom: Math.max(bottomInset, 7),
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#EBE6DE',
+          borderTopWidth: 1,
+          elevation: 12,
+          shadowColor: '#1A1815',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.05,
+          shadowRadius: 16,
         },
       }}>
       <Tabs.Screen
         name="discover"
         options={{
           title: 'Discover',
-          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'flame' : 'flame-outline'} size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'flame' : 'flame-outline'} size={23} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="active"
         options={{
           title: 'Active',
-          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'albums' : 'albums-outline'} size={21} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'albums' : 'albums-outline'} size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={23} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={24} color={color} />
+          ),
         }}
       />
     </Tabs>
