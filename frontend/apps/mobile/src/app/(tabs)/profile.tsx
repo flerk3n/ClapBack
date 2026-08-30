@@ -18,7 +18,7 @@ export default function CreatorProfileScreen() {
   };
 
   return (
-    <Screen style={styles.screen}>
+    <Screen edges={['top']} style={styles.screen}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
           <AppText variant="hero">Profile</AppText>
@@ -64,7 +64,7 @@ export default function CreatorProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { paddingTop: spacing[6] },
+  screen: { paddingTop: spacing[2] },
   content: { gap: spacing[4], paddingBottom: spacing[10] },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   demoBadge: { backgroundColor: colors.coralWash, borderRadius: radii.pill, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },

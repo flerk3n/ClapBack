@@ -91,6 +91,7 @@ export function MockAppProvider({ children }: PropsWithChildren) {
 
     SecureStore.getItemAsync(DEMO_TOKEN_KEY)
       .then((token) => setIsAuthenticated(Boolean(token)))
+      .catch(() => setIsAuthenticated(false))
       .finally(() => setIsHydrated(true));
 
     return () => scheduledTimers.forEach(clearTimeout);

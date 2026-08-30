@@ -12,7 +12,7 @@ export default function ActiveScreen() {
   const { acceptances, getBounty } = useMockApp();
 
   return (
-    <Screen style={styles.screen}>
+    <Screen edges={['top']} style={styles.screen}>
       <View style={styles.header}>
         <AppText variant="hero">Active</AppText>
         <AppText variant="bodyLarge" tone="soft">Your accepted Bounties and Submissions, in one place.</AppText>
@@ -59,7 +59,7 @@ export default function ActiveScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { paddingTop: spacing[6] },
+  screen: { paddingTop: spacing[2] },
   header: { gap: spacing[2], paddingBottom: spacing[6] },
   list: { gap: spacing[3], paddingBottom: spacing[8] },
   taskCard: { minHeight: 112, borderRadius: radii.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: spacing[3], flexDirection: 'row', alignItems: 'center', gap: spacing[3] },

@@ -30,7 +30,7 @@ export default function DiscoverScreen() {
   const handleSkip = (bountyId: string) => setSkippedIds((current) => [...current, bountyId]);
 
   return (
-    <Screen style={styles.screen}>
+    <Screen edges={['top']} style={styles.screen}>
       <View style={styles.header}>
         <View>
           <AppText variant="caption" tone="muted">GOOD AFTERNOON</AppText>
@@ -133,20 +133,20 @@ export default function DiscoverScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { paddingTop: spacing[2], paddingBottom: spacing[2] },
-  header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  filterRow: { height: 36, flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[2] },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.eucalyptus },
-  filterButton: { marginLeft: 'auto', width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  stackArea: { flex: 1, width: '100%', position: 'relative', minHeight: 430 },
-  actions: { height: 76, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[5] },
-  actionButton: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', ...shadows.floating },
+  screen: { paddingTop: 0, paddingBottom: 0 },
+  header: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  filterRow: { height: 28, flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[1] },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.eucalyptus },
+  filterButton: { marginLeft: 'auto', width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  stackArea: { flex: 1, width: '100%', position: 'relative' },
+  actions: { height: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[5], paddingVertical: 2 },
+  actionButton: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', ...shadows.floating },
   skipButton: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   acceptButton: { backgroundColor: colors.coral },
   actionPressed: { transform: [{ scale: 0.94 }] },
   swipeHint: { width: 72, alignItems: 'center' },
-  emptyCard: { flex: 1, minHeight: 430, borderRadius: radii.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', padding: spacing[8], gap: spacing[3] },
-  emptyIcon: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.eucalyptusWash, alignItems: 'center', justifyContent: 'center' },
+  emptyCard: { flex: 1, borderRadius: radii.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', padding: spacing[6], gap: spacing[2] },
+  emptyIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.eucalyptusWash, alignItems: 'center', justifyContent: 'center' },
   center: { textAlign: 'center' },
   resetButton: { alignSelf: 'stretch', marginTop: spacing[2] },
   modalScrim: { ...StyleSheet.absoluteFill, backgroundColor: colors.scrim },
