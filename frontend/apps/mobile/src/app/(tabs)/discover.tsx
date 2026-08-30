@@ -122,7 +122,7 @@ export default function DiscoverScreen() {
             <View style={styles.emptyIcon}><Ionicons name="checkmark" size={28} color={colors.eucalyptus} /></View>
             <AppText variant="heading">You’re all caught up.</AppText>
             <AppText variant="body" tone="soft" style={styles.center}>
-              Reset the demo stack or adjust your niche filters to revisit Bounties.
+              Reset skipped bounties or adjust your niche filters to explore more.
             </AppText>
             <AppButton
               label="Reset skipped Bounties"

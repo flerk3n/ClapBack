@@ -72,13 +72,13 @@ export default function WelcomeScreen() {
           onPress={() => continueWithDemo('instagram')}
         />
         <AppButton
-          label="Use demo creator"
+          label="Explore as Guest Creator"
           variant="secondary"
           loading={loading === 'demo'}
           onPress={() => continueWithDemo('demo')}
         />
         <AppText variant="caption" tone="muted" style={styles.note}>
-          Demo build · Instagram metrics are simulated until the Backend OAuth handoff is connected.
+          Preview mode · Instagram metrics are simulated until Meta OAuth is connected.
         </AppText>
       </View>
     </Screen>

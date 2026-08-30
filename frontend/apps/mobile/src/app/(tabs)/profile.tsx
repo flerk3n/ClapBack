@@ -22,7 +22,6 @@ export default function CreatorProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
           <AppText variant="hero">Profile</AppText>
-          <View style={styles.demoBadge}><AppText variant="eyebrow" tone="coral">DEMO</AppText></View>
         </View>
         <View style={styles.identityCard}>
           <Avatar name={creator.displayName} size={78} />
@@ -72,7 +71,6 @@ const styles = StyleSheet.create({
   screen: { paddingTop: spacing[2] },
   content: { gap: spacing[4], paddingBottom: spacing[10] },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  demoBadge: { backgroundColor: colors.coralWash, borderRadius: radii.pill, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
   identityCard: { borderRadius: radii.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: spacing[4], flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   identityCopy: { flex: 1 },
   handleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], marginTop: 2 },
