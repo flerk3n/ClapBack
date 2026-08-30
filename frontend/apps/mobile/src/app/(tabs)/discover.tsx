@@ -63,9 +63,17 @@ export default function DiscoverScreen() {
           </View>
           <AppText variant="heading">Find your next take.</AppText>
         </View>
-        <View style={styles.avatarContainer}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open profile"
+          hitSlop={8}
+          onPress={() => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/(tabs)/profile');
+          }}
+          style={({ pressed }) => [styles.avatarContainer, pressed && styles.avatarPressed]}>
           <Avatar name={creator.displayName} size={42} />
-        </View>
+        </Pressable>
       </View>
 
       <View style={styles.filterRow}>
@@ -279,6 +287,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
     backgroundColor: colors.surface,
+  },
+  avatarPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.95 }],
   },
   filterRow: { height: 32, flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] },
   liveDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.eucalyptus },
