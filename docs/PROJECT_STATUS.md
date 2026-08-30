@@ -23,10 +23,10 @@ A finite local HTTP smoke passed the complete two-video flow using `TRANSCRIPTIO
 
 ## Repository state
 
-- Latest committed integration gate: `c5a404a` — `feat(backend): complete local P0 integration gate`.
-- Current demo-loop implementation is present in the worktree and is not yet committed.
-- Branch is currently two commits ahead of `origin/main` before any commit for this demo-loop work.
-- The pre-existing edits in `frontend/apps/mobile/eslint.config.js`, `frontend/apps/mobile/package.json`, and `frontend/apps/mobile/package-lock.json` remain unrelated to this demo-loop implementation. They were not modified as part of the API/mobile/reviewer work and must remain separately reviewed.
+- Working demo-loop commit: `37ce7d3` — `feat(demo): connect upload review and scoreboard loop`.
+- The demo-loop implementation and documentation are committed.
+- The staging area is empty.
+- Only the pre-existing edits in `frontend/apps/mobile/eslint.config.js`, `frontend/apps/mobile/package.json`, and `frontend/apps/mobile/package-lock.json` remain uncommitted and unrelated to the demo-loop implementation.
 
 ## Active demo architecture
 
