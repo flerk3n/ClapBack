@@ -1,0 +1,21 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/assets/*": ["./assets/*"],
+      "@clapback/contracts": ["../../packages/contracts/src/index.ts"],
+      "@clapback/demo-data": ["../../packages/demo-data/src/index.ts"],
+      "@clapback/ui": ["../../packages/ui/src/index.ts"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "../../packages/**/*.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}

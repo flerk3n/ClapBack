@@ -1,0 +1,32 @@
+# Dependencies
+**/node_modules/
+
+# Expo and build output
+**/.expo/
+**/dist/
+**/web-build/
+**/expo-env.d.ts
+**/*.tsbuildinfo
+
+# Native generated projects and signing material
+**/ios/
+**/android/
+**/.kotlin/
+**/*.jks
+**/*.p8
+**/*.p12
+**/*.key
+**/*.mobileprovision
+
+# Local environment and logs
+**/.env
+**/.env.*
+!**/.env.example
+**/npm-debug.*
+**/yarn-debug.*
+**/yarn-error.*
+
+# Editor and operating-system noise
+**/.DS_Store
+**/*.pem
+**/.metro-health-check*
