@@ -286,6 +286,8 @@ Do not put API field conversion inside visual components. Parse the envelope onc
 
 **Frontend output:** selected MP4 reaches private Storage and backend processing.
 
+**Transcription boundary:** mobile and web upload the accepted original MP4 unchanged. Frontend code must not extract audio, transcode media, install FFmpeg, or send a derivative MP3. The Backend passes a short-lived signed URL for the private video directly to ElevenLabs. The later label **Checking audio** describes speech-to-text analysis; it does not imply a client-side or server-side audio-extraction step.
+
 ## Frontend Phase A7 — Submission processing and retry experience
 
 **Goal:** make asynchronous AI processing understandable.

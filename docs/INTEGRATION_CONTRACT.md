@@ -474,7 +474,17 @@ Frontend status labels are fixed:
 | `IN_REVIEW` | With reviewers | In review |
 | `SCORED` | Results ready | Scored |
 
-Rules:
+Media processing rules:
+
+1. Frontend uploads the accepted original MP4 unchanged to the authorized private Storage target.
+2. Frontend never extracts audio, transcodes video, installs FFmpeg, or creates a derivative MP3.
+3. Backend creates a short-lived signed read URL for the original private MP4 and sends it to ElevenLabs as `source_url` with asynchronous webhook processing and Submission correlation metadata.
+4. `TRANSCRIBING` / **Checking audio** means speech-to-text analysis of the uploaded video; it does not imply a separate audio file.
+5. FFmpeg is outside the base contract. It may be proposed only as a documented compatibility fallback after representative uploads demonstrate an unsupported codec/container, and any such change follows the contract-change protocol.
+
+ElevenLabs documents direct video/file input, `source_url`, asynchronous webhooks, and webhook metadata in the [Speech-to-Text convert API](https://elevenlabs.io/docs/api-reference/speech-to-text/convert). Content from the linked documentation has been rephrased for compliance with licensing restrictions.
+
+Submission state rules:
 
 1. Frontend must not infer `AI_PASSED` from a non-null transcript or confidence.
 2. Frontend must not show a retry action for `AI_PASSED`, `IN_REVIEW`, or `SCORED`.

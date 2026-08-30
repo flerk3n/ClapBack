@@ -156,7 +156,13 @@ The Node API keeps the Meta client secret, ElevenLabs key, LLM key, and Supabase
 
 ### 3.3 Why FFmpeg is not in the base architecture
 
-ElevenLabs can receive the video file or a signed HTTPS source URL directly. Removing FFmpeg avoids native binary deployment, temporary disk handling, format conversion failures, and a second copy of every video. Add FFmpeg only if actual uploaded files prove incompatible or need compression.
+The ElevenLabs Speech-to-Text convert API accepts major audio and video formats as either a direct `file` upload or a `source_url`. With `webhook = true`, it returns early and delivers the transcription asynchronously; `webhook_metadata` can carry the Clapback Submission correlation ID. The base path therefore sends the original private MP4 through a short-lived signed `source_url` and does not create a derivative audio file.
+
+Removing FFmpeg avoids a deprecated wrapper dependency, native binary deployment, temporary MP3 handling, format-conversion failures, and a second copy of every Submission. FFmpeg may be introduced only as a documented compatibility fallback after representative Android MP4 files demonstrate a codec/container problem that ElevenLabs cannot handle directly.
+
+The pulled Express prototype currently converts MP4 to MP3 with `fluent-ffmpeg`; that implementation is non-conforming and must be replaced by the direct-video path before frontend integration.
+
+Reference: [ElevenLabs Speech-to-Text convert API](https://elevenlabs.io/docs/api-reference/speech-to-text/convert). Content from the linked documentation has been rephrased for compliance with licensing restrictions.
 
 ## 4. Core demo data and rules
 

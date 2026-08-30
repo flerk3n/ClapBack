@@ -290,9 +290,9 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
 
 **Backend output:** both upload clients can place valid private video and queue one processing job.
 
-## Backend Phase B6 — Persistent jobs and ElevenLabs transcription
+## Backend Phase B6 — Persistent jobs and direct-video ElevenLabs transcription
 
-**Goal:** process uploads asynchronously without adding Redis or FFmpeg.
+**Goal:** transcribe the original private MP4 asynchronously without adding Redis, FFmpeg, or derivative audio files.
 
 1. Implement database job claim using a transaction and row lock/skip-locked behavior.
 2. Store attempt count, lock time, available time, and safe last error.
@@ -300,25 +300,29 @@ Handlers should orchestrate. Domain modules enforce rules. Provider adapters iso
 4. Add capped provider retries and terminal `PROCESSING_ERROR` behavior.
 5. Handle `START_TRANSCRIPTION`:
    - validate Submission is `QUEUED`;
-   - create limited signed read URL;
-   - call ElevenLabs with asynchronous webhook mode;
-   - attach correlation metadata;
-   - set Submission `TRANSCRIBING`.
-6. Do not use FFmpeg in the base path.
-7. Implement ElevenLabs webhook:
+   - create a short-lived signed read URL for the original private MP4;
+   - call ElevenLabs Speech-to-Text with that URL as `source_url`;
+   - set `webhook = true` and attach the Submission/correlation ID through `webhook_metadata`;
+   - set Submission `TRANSCRIBING` after provider acceptance.
+6. Do not extract audio, transcode the video, or create a temporary MP3 in the base path.
+7. Remove the prototype `audioExtractor`, `fluent-ffmpeg`, and `@types/fluent-ffmpeg` dependencies when implementing this phase.
+8. Add an FFmpeg compatibility fallback only after representative Android MP4 files demonstrate a real unsupported-codec problem, and keep that fallback outside the normal path.
+9. Implement ElevenLabs webhook:
    - verify provider signature or configured callback secret;
    - validate correlation metadata;
    - deduplicate callback event;
    - reject unknown Submission;
    - normalize and store transcript;
    - enqueue one `EVALUATE_TRANSCRIPT` job.
-8. Convert final provider failure to canonical processing state and safe message.
-9. Ensure signed URLs and provider payloads are redacted from logs.
-10. Add admin-only reprocess for `PROCESSING_ERROR` that creates one new job safely.
+10. Convert final provider failure to canonical processing state and safe message.
+11. Ensure signed URLs and provider payloads are redacted from logs.
+12. Add admin-only reprocess for `PROCESSING_ERROR` that creates one new job safely.
+
+ElevenLabs documents direct video/file input, `source_url`, asynchronous webhooks, and webhook metadata in the [Speech-to-Text convert API](https://elevenlabs.io/docs/api-reference/speech-to-text/convert). Content from the linked documentation has been rephrased for compliance with licensing restrictions.
 
 **Frontend handoff:** observable status progression and safe processing errors.
 
-**Backend output:** uploaded video becomes a persisted transcript or recoverable error.
+**Backend output:** the original uploaded video becomes a persisted transcript or recoverable error without a local media-conversion dependency.
 
 ## Backend Phase B7 — Deliverable checks and AI filtering
 
