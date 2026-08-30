@@ -6,11 +6,11 @@
 
 ## Executive summary
 
-Clapback is focused on one working demo loop rather than a production marketplace. The local path is: demo Creator sign-in -> Niche selection -> Bounty swipe/Acceptance -> real mobile MP4 upload -> visible transcription/AI stages -> QR-linked human review -> 1–5 Ratings -> Creator-controlled stop -> frozen video-wise Scoreboard. The canonical fixtures now include a Uniqlo **Men's Outfit Haul** UGC Bounty whose required Deliverables are semantic men's-outfit relevance and a deterministic video duration strictly under 1 minute.
+Clapback is focused on one working demo loop rather than a production marketplace. The local path is: demo Creator sign-in -> Niche selection -> Bounty swipe/Acceptance -> real mobile MP4 upload -> visible transcription/AI stages -> QR-linked human review -> 1–5 Ratings -> Creator-controlled stop -> frozen video-wise Scoreboard. The canonical fixtures now include a Uniqlo **Men's Outfit Haul** UGC Bounty whose required Deliverables are semantic men's T-shirt relevance and a deterministic video duration strictly under 1 minute.
 
-Extra review videos require no Bounty IDs, admin token, or upload command. The operator places two to four manually curated Uniqlo outfit MP4s under 1 minute in `backend/demo-videos/`. When a real Uniqlo Submission reaches `AI_PASSED` and human review starts, the Backend treats those folder files as pre-approved fixtures and combines them with the Creator video. Other Bounties never load this folder. The Review Round remains capped at five videos total.
+Extra review videos require no Bounty IDs, admin token, or upload command. The operator places two to four manually curated Uniqlo men's T-shirt MP4s under 1 minute in `backend/demo-videos/`. When a real Uniqlo Submission reaches `AI_PASSED` and human review starts, the Backend treats those folder files as pre-approved fixtures and combines them with the Creator video. Other Bounties never load this folder. The Review Round remains capped at five videos total.
 
-A finite local HTTP smoke passed the scoped workflow in `TRANSCRIPTION_MODE=mock`: six Bounties included Uniqlo, a real Uniqlo multipart upload preserved `durationSeconds: 29`, and its Review Round contained that upload plus the three existing folder MP4s. A GlowPop round in the same process contained only its Creator upload, proving the folder guard. A focused verifier check of the updated limit observed that 59 seconds passes while exactly 60 seconds fails. Backend/mobile builds, mobile lint, and `git diff --check` pass.
+A finite local HTTP smoke passed the scoped workflow in `TRANSCRIPTION_MODE=mock`: six Bounties included Uniqlo, a real Uniqlo multipart upload preserved `durationSeconds: 29`, and its Review Round contained that upload plus the three existing folder MP4s. A GlowPop round in the same process contained only its Creator upload, proving the folder guard. A focused no-network verifier smoke confirmed Backend/mobile T-shirt fixture parity, a men's T-shirt transcript passes, the previous outfit-only transcript fails, 59 seconds passes, and exactly 60 seconds fails. Backend/mobile builds and mobile lint pass.
 
 | Area | Status | Summary |
 | --- | --- | --- |
@@ -94,7 +94,7 @@ Location: `backend/public/review.html`
 
 ## Folder usage
 
-1. Put two to four manually verified Uniqlo men's-outfit MP4s, each under 1 minute, directly in:
+1. Put two to four manually verified Uniqlo men's T-shirt MP4s, each under 1 minute, directly in:
 
    ```text
    backend/demo-videos/
@@ -152,9 +152,12 @@ Validated on 2026-08-30:
 
 Focused Uniqlo verifier smoke verified:
 
-1. Six canonical Bounties include Uniqlo Men's Outfit Haul.
-2. `durationSeconds: 59` passes the strict under-1-minute Deliverable.
-3. `durationSeconds: 60` fails that Deliverable.
+1. Backend and mobile fixtures have identical Uniqlo briefs and Deliverables.
+2. A men's T-shirt transcript passes the `mens-tshirt` Relevance Deliverable through a mocked Gemini response.
+3. The previous generic men's-outfit transcript fails because it does not establish a T-shirt.
+4. `durationSeconds: 59` passes the strict under-1-minute Deliverable.
+5. `durationSeconds: 60` fails that Deliverable.
+6. The smoke asserted `gemini-2.5-flash` selection without making a live Gemini request.
 
 Focused Gemini-only configuration smoke verified:
 
@@ -189,12 +192,12 @@ Not yet validated:
 | Real provider path is untested | Mock mode proves orchestration but not ElevenLabs credentials, codec support, latency, transcript wording, or a live Gemini 2.5 Flash response | Run one prepared Android MP4 with ElevenLabs and Gemini keys |
 | Integrated Expo journey has not been rerun | Static checks cannot prove picker permissions, XHR progress, navigation, polling, QR rendering, or Scoreboard layout | Run the complete Creator flow in the emulator/device |
 | Cross-device QR reachability is unproven | A QR using `localhost` or `10.0.2.2` will fail on audience phones | Use LAN/tunnel `PUBLIC_BASE_URL` and scan from another phone |
-| Presentation assets are not finalized | The three existing folder MP4s are loaded, but the Backend does not prove their duration or visual content | Manually confirm each final fixture shows a men's outfit, is under 1 minute, and plays before the demo |
+| Presentation assets are not finalized | The three existing folder MP4s are loaded, but the Backend does not prove their duration or visual content | Manually confirm each final fixture shows a men's T-shirt, is under 1 minute, and plays before the demo |
 
 ### P1 — useful but not required
 
 - Picker-reported duration is trusted in the controlled demo; forged multipart metadata could bypass a production duration policy.
-- Men's-outfit relevance is inferred from transcript/LLM text only; the Backend does not inspect video frames.
+- Men's T-shirt relevance is inferred from transcript/LLM text only; the Backend does not inspect video frames.
 - Add visible request errors and disable repeat taps on slower screens.
 - Add distinct fixture Creator display names if the Scoreboard should show different people; it is currently video-wise and filenames distinguish rows.
 - Add a simple reset control if repeated demos in one Backend process become cumbersome.
@@ -208,7 +211,7 @@ Not yet validated:
 
 ## Immediate next actions
 
-1. Manually verify the final two to four Uniqlo men's-outfit fixtures in `backend/demo-videos/` are under 1 minute and play correctly.
+1. Manually verify the final two to four Uniqlo men's T-shirt fixtures in `backend/demo-videos/` are under 1 minute and play correctly.
 2. Configure matching mobile/Backend Creator PIN and reachable API/public URLs.
 3. Run the complete emulator flow in mock mode.
 4. Run one prepared real MP4 through ElevenLabs and Gemini.
@@ -216,6 +219,12 @@ Not yet validated:
 6. Freeze the demo environment; do not resume production infrastructure work unless the demo requires it.
 
 ## Change log
+
+### 2026-08-30 — Men's T-shirt Uniqlo requirement
+
+- Replaced the Uniqlo content requirement and Relevance Deliverable from a complete men's outfit to a men's T-shirt while preserving the stable Bounty identity and strict one-minute limit.
+- Aligned Backend/mobile fixtures, mock-transcript guidance, and curated fixture instructions around the T-shirt requirement.
+- Passed Backend build, mobile typecheck/lint, and a no-network fixture-parity/verifier smoke showing a T-shirt transcript passes while outfit-only content and exactly 60 seconds fail.
 
 ### 2026-08-30 — Niche onboarding state fix
 

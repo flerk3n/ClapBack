@@ -131,9 +131,9 @@ export const demoBounties: Bounty[] = bountySchema.array().parse([
     productName: "Men's Outfit Haul",
     productImageUrl: 'fixture://uniqlo-mens-outfit-haul',
     type: 'UGC',
-    brief: "Show and describe a complete men’s outfit from your Uniqlo haul in under 1 minute.",
+    brief: "Show and describe a men’s T-shirt from your Uniqlo haul in under 1 minute.",
     deliverables: [
-      { id: 'mens-outfit', label: 'Show a men’s outfit', kind: 'RELEVANCE', required: true, keywords: ["men’s outfit", "men's outfit", 'menswear', 'outfit', 'look'], matchMode: 'LLM_RELEVANCE' },
+      { id: 'mens-tshirt', label: 'Show a men’s T-shirt', kind: 'RELEVANCE', required: true, keywords: ["men’s T-shirt", "men's T-shirt", 'mens T-shirt', 'T-shirt', 'Tshirt', 'tee'], matchMode: 'LLM_RELEVANCE' },
       { id: 'under-1-minute', label: 'Keep the video under 1 minute', kind: 'MAX_DURATION', required: true, maxDurationSeconds: 60 },
     ],
     niches: [fashion, lifestyle],

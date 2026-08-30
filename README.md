@@ -34,7 +34,7 @@ Creator signs in
 
 The featured demo Bounty is **Uniqlo — Men's Outfit Haul**:
 
-- Show and describe a men's outfit.
+- Show and describe a men's T-shirt.
 - Keep the Creator video strictly under one minute (`durationSeconds < 60`).
 - Combine the real Creator upload with up to four curated fixture videos for review.
 
@@ -114,7 +114,7 @@ DEMO_CREATOR_PIN=1234
 DEMO_ADMIN_PIN=5678
 
 TRANSCRIPTION_MODE=mock
-MOCK_TRANSCRIPT=Here is my complete Uniqlo men's outfit look for today
+MOCK_TRANSCRIPT=Here is the men's T-shirt from my Uniqlo haul
 ELEVENLABS_API_KEY=
 
 GEMINI_API_KEY=<your-google-ai-studio-key>
@@ -235,7 +235,7 @@ Rules:
 
 - Fixtures attach only to the Uniqlo Men's Outfit Haul Bounty.
 - Files are selected alphabetically, with at most four fixtures.
-- Each fixture must show a men's outfit and be under one minute.
+- Each fixture must show a men's T-shirt and be under one minute.
 - Fixtures are manually pre-approved; the Backend does not transcribe, inspect, or derive duration from them.
 - Starting review repeatedly does not duplicate them.
 - Local MP4s in this folder are ignored by Git.
